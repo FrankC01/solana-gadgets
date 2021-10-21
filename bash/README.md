@@ -1,0 +1,1 @@
+## bash scripts of various solana_gadgets
