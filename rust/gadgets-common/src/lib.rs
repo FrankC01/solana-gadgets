@@ -31,18 +31,23 @@ mod tests {
     #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
     struct Simple {
         version: String,
-        hash_map: HashMap<String, String>,
+        data_mapping: HashMap<String, String>,
     }
 
     impl Simple {
-        fn load(fname: &str) -> Self {
-            load_yaml_file(&Path::new(fname)).unwrap()
+        fn load(fname: &str) -> Result<Self, io::Error> {
+            load_yaml_file(&Path::new(fname))
         }
     }
 
     #[test]
     fn load_yaml_file_pass() {
-        let y = Simple::load("../yaml_samps/test.yml");
-        assert_eq!(y.version, String::from("0.0.0"));
+        let y = Simple::load("../yaml_samps/test.yml").unwrap();
+        assert_eq!(y.version, String::from("0.1.0"));
+    }
+    #[test]
+    fn load_yaml_file_fail() {
+        let y = Simple::load("../yaml_samps/test_fail.yml");
+        assert!(y.is_err());
     }
 }

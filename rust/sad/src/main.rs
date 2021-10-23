@@ -1,5 +1,7 @@
 //! @brief Main entry poiint for CLI
 
+use std::str::FromStr;
+
 use {
     crate::{clparse::parse_command_line, datamap::DataMap},
     solana_clap_utils::{input_validators::normalize_to_url_if_moniker, keypair::DefaultSigner},
@@ -67,13 +69,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ("deser", Some(_arg_matchs)) => {
             let dfile = Path::new(matches.value_of("data-map").unwrap());
             let dmap = DataMap::new(dfile);
-            let target_account = {
-                match matches.value_of("account") {
-                    Some(t) => Pubkey::new(t.as_bytes()),
-                    None => config.default_signer.pubkey(),
-                }
+            let account: Pubkey = match matches.value_of("account") {
+                Some(acc) => Pubkey::from_str(acc).unwrap(),
+                None => config.default_signer.pubkey(),
             };
-            dmap.map_accounts_data(&rpc_client, &target_account, config.commitment_config);
+            dmap.map_accounts_data(&rpc_client, &account, config.commitment_config);
             println!("Deserializing data with {:?}", dmap);
         }
         _ => unreachable!(),

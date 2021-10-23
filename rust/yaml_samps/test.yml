@@ -1,5 +1,5 @@
 ---
-version: 0.0.0
-hash_map:
+version: 0.1.0
+data_mapping:
   one_entry: one_value
   two_entry: two_value

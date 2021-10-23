@@ -1,0 +1,13 @@
+---
+version: 0.1.0
+deserializer: borsh
+total_data_size: 1024
+data_mapping:
+  initialized:
+    type: bool
+  btree_len:
+    type: u32
+  btree:
+    type: associative
+    key_type: string
+    value_type: string

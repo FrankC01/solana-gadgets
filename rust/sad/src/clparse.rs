@@ -66,7 +66,7 @@ pub fn parse_command_line() -> ArgMatches<'static> {
                         .validator(is_valid_pubkey)
                         .required(false)
                         .takes_value(true)
-                        .help("Account ID string (override default keypair)"),
+                        .help("Account ID string (overrides default keypair)"),
                 )
                 .arg(
                     Arg::with_name("data-map")
