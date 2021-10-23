@@ -1,18 +1,17 @@
 //! @brief Main entry poiint for CLI
-use crate::clparse::parse_command_line;
+
 use {
+    crate::{clparse::parse_command_line, datamap::DataMap},
     solana_clap_utils::{input_validators::normalize_to_url_if_moniker, keypair::DefaultSigner},
     solana_client::rpc_client::RpcClient,
     solana_remote_wallet::remote_wallet::RemoteWalletManager,
-    solana_sdk::{
-        commitment_config::CommitmentConfig,
-        signature::{Keypair, Signer},
-    },
-    std::{process::exit, sync::Arc},
+    solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signer},
+    std::{path::Path, process::exit, sync::Arc},
 };
 
 /// sad main module
 mod clparse;
+mod datamap;
 
 struct Config {
     commitment_config: CommitmentConfig,
@@ -66,7 +65,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rpc_client = RpcClient::new(config.json_rpc_url.clone());
     match (sub_command, sub_matches) {
         ("deser", Some(_arg_matchs)) => {
-            println!("Deserializing data");
+            let dfile = Path::new(matches.value_of("data-map").unwrap());
+            let dmap = DataMap::new(dfile);
+            let target_account = {
+                match matches.value_of("account") {
+                    Some(t) => Pubkey::new(t.as_bytes()),
+                    None => config.default_signer.pubkey(),
+                }
+            };
+            dmap.map_accounts_data(&rpc_client, &target_account, config.commitment_config);
+            println!("Deserializing data with {:?}", dmap);
         }
         _ => unreachable!(),
     }
