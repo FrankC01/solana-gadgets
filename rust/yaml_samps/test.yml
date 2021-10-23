@@ -1,0 +1,5 @@
+---
+version: 0.0.0
+hash_map:
+  one_entry: one_value
+  two_entry: two_value
