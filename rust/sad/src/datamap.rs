@@ -1,14 +1,14 @@
 //! @brief Data map
 
+use crate::sad_errors::{SadAppError, SadBaseResult, SadTypeResult};
 use gadgets_common::load_yaml_file;
-use gadgets_common::sol_txns::account_for_key;
+
 use lazy_static::lazy_static;
 use serde::Deserialize;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 use std::{
     collections::{HashMap, HashSet},
-    io,
     path::Path,
 };
 
@@ -52,22 +52,46 @@ struct DataDefinition {
 }
 
 impl DataDefinition {
-    fn load(fname: &Path) -> Result<Self, io::Error> {
-        load_yaml_file(fname)
+    fn check_types(&self) -> SadBaseResult {
+        for hlmap in self.data_mapping.keys() {
+            let mymap = self.data_mapping.get(hlmap).unwrap();
+            if !mymap.contains_key(&*DECL_TYPE_KEY) {
+                return Err(SadAppError::DataMappingMissingTypeError { key: hlmap.clone() });
+            } else if !TYPE_SET.contains(mymap.get(&*DECL_TYPE_KEY).unwrap()) {
+                return Err(SadAppError::DataMappingError {
+                    key: hlmap.clone(),
+                    value: mymap.get(&*DECL_TYPE_KEY).unwrap().clone(),
+                });
+            }
+        }
+        Ok(())
+    }
+    fn load(fname: &Path) -> SadTypeResult<DataDefinition> {
+        match load_yaml_file(fname) {
+            Ok(dd) => {
+                let myd: DataDefinition = dd;
+                myd.check_types()?;
+                Ok(myd)
+            }
+            Err(e_) => Err(SadAppError::IoError(e_)),
+        }
     }
 }
 
 #[derive(Debug)]
 pub struct DataMap {
-    data_file_path: DataDefinition,
+    data_definition: DataDefinition,
 }
 
 impl DataMap {
     /// Instantiate a DataMap with a
     /// specific data definition file (yaml)
-    pub fn new(dfile: &Path) -> Self {
-        Self {
-            data_file_path: DataDefinition::load(dfile).unwrap(),
+    pub fn new(dfile: &Path) -> SadTypeResult<DataMap> {
+        match DataDefinition::load(dfile) {
+            Ok(x_) => Ok(Self {
+                data_definition: x_,
+            }),
+            Err(e_) => Err(e_),
         }
     }
     /// Unpack data from a slice based on the
@@ -77,57 +101,90 @@ impl DataMap {
         rpc_client: &RpcClient,
         key: &Pubkey,
         commitment_config: CommitmentConfig,
-    ) {
-        let account = account_for_key(rpc_client, key, commitment_config).unwrap();
-        println!("\nAccount #:{}", key);
-        println!("Remaining Lamports: {}", account.lamports);
-        println!("Data size (bytes): {}", account.data.len());
-        println!("Raw data: {:?}", account.data);
+        show_raw: bool,
+    ) -> SadBaseResult {
+        match rpc_client.get_account_with_commitment(key, commitment_config) {
+            Ok(a_) => match a_.value {
+                Some(account) => {
+                    if account.executable {
+                        Err(SadAppError::AccountIsExecutable(*key))
+                    } else if account.data.is_empty() {
+                        Err(SadAppError::AccountHasNoData(*key))
+                    } else {
+                        println!("\nAccount #: {}", key);
+                        println!("Remaining Lamports: {}", account.lamports);
+                        println!("Data size (bytes): {}", account.data.len());
+                        if show_raw {
+                            println!("Raw data: {:?}", account.data);
+                        }
+                        // Decompose the data
+                        Ok(())
+                    }
+                }
+                None => Err(SadAppError::NoAccount(*key)),
+            },
+            Err(e_) => Err(SadAppError::ConnectionError(e_)),
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env::current_dir;
+    use std::{env::current_dir, path::PathBuf};
 
+    fn path_from_str(in_str: &'static str) -> PathBuf {
+        current_dir().unwrap().parent().unwrap().join(in_str)
+    }
     #[test]
-    fn load_datadefinition() {
-        let fpath = current_dir()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .join("yaml_samps/hbclisamp.yml");
-        let y = DataDefinition::load(&fpath).unwrap();
+    fn load_datadefinition_pass() {
+        let y = DataDefinition::load(&path_from_str("yaml_samps/hbclisamp.yml")).unwrap();
         assert_eq!(y.version, String::from("0.1.0"));
         assert_eq!(y.deserializer, String::from("borsh"));
         let initialized = String::from("initialized");
         let btree_len = String::from("btree_len");
         let btree = String::from("btree");
-        let dtype = String::from("type");
-        let ktype = String::from("key_type");
-        let vtype = String::from("value_type");
         assert!(y.data_mapping.contains_key(&initialized));
         assert_eq!(
             y.data_mapping
                 .get(&initialized)
                 .unwrap()
-                .get(&dtype)
+                .get(&*DECL_TYPE_KEY)
                 .unwrap(),
-            &String::from("bool")
+            &*DECL_TYPE_BOOL_TYPE
         );
         assert!(y.data_mapping.contains_key(&btree_len));
         assert_eq!(
-            y.data_mapping.get(&btree_len).unwrap().get(&dtype).unwrap(),
-            &String::from("u32")
+            y.data_mapping
+                .get(&btree_len)
+                .unwrap()
+                .get(&*DECL_TYPE_KEY)
+                .unwrap(),
+            &*DECL_TYPE_U32_TYPE
         );
         assert!(y.data_mapping.contains_key(&btree));
         let btree_type = y.data_mapping.get(&btree).unwrap();
         assert_eq!(
-            btree_type.get(&dtype).unwrap(),
-            &String::from("associative")
+            btree_type.get(&*DECL_TYPE_KEY).unwrap(),
+            &*DECL_TYPE_ASSOCIATIVE_TYPE
         );
-        assert_eq!(btree_type.get(&ktype).unwrap(), &String::from("string"));
-        assert_eq!(btree_type.get(&vtype).unwrap(), &String::from("string"));
+        assert_eq!(
+            btree_type.get(&*DECL_TYPE_KEY_TYPE).unwrap(),
+            &*DECL_TYPE_STRING_TYPE
+        );
+        assert_eq!(
+            btree_type.get(&*DECL_TYPE_VALUE_TYPE).unwrap(),
+            &*DECL_TYPE_STRING_TYPE
+        );
+    }
+
+    #[test]
+    fn load_datadefinition_fail() {
+        let y = DataDefinition::load(&path_from_str("yaml_samps/hbclisamp_bad.yml"));
+        assert!(y.is_err());
+        match y {
+            Ok(_) => panic!("Should never have gotten here"),
+            Err(w) => eprint!("{}", w),
+        }
     }
 }

@@ -4,8 +4,6 @@
 use serde_yaml::{self, from_reader};
 use std::{fs::File, io, path::Path};
 
-pub mod sol_txns;
-
 /// Loads a yaml_file
 pub fn load_yaml_file<T, P>(yaml_file: P) -> Result<T, io::Error>
 where

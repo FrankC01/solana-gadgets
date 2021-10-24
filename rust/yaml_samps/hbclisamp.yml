@@ -1,13 +1,22 @@
----
+--- # solana-cli-program-template 'Sample' program accounts
+# Version of the program
 version: 0.1.0
+# Choices are borsh or serde
 deserializer: borsh
+# Overall allocation size for account
 total_data_size: 1024
+# Model the data layout
 data_mapping:
+  # This is a bool that occupies data[0]
   initialized:
+    # Types are 'bool', 'u32', 'u64', 'string', 'associative'
     type: bool
+  # Describes the size of the serialized 'btree' below
   btree_len:
     type: u32
+  # Describes the actual BTreeMap
   btree:
+    # associative types require a key and a value
     type: associative
     key_type: string
     value_type: string

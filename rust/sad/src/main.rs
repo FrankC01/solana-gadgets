@@ -14,6 +14,7 @@ use {
 /// sad main module
 mod clparse;
 mod datamap;
+mod sad_errors;
 
 struct Config {
     commitment_config: CommitmentConfig,
@@ -68,13 +69,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match (sub_command, sub_matches) {
         ("deser", Some(_arg_matchs)) => {
             let dfile = Path::new(matches.value_of("data-map").unwrap());
-            let dmap = DataMap::new(dfile);
+            let dmap = DataMap::new(dfile)?;
             let account: Pubkey = match matches.value_of("account") {
                 Some(acc) => Pubkey::from_str(acc).unwrap(),
                 None => config.default_signer.pubkey(),
             };
-            dmap.map_accounts_data(&rpc_client, &account, config.commitment_config);
-            println!("Deserializing data with {:?}", dmap);
+            match dmap.map_accounts_data(&rpc_client, &account, config.commitment_config, false) {
+                Ok(_) => println!("Successful deserialization of account"),
+                Err(e) => {
+                    eprint!("{}", e)
+                }
+            }
         }
         _ => unreachable!(),
     }
