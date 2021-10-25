@@ -12,7 +12,10 @@ use std::{
     path::Path,
 };
 
+// Data mapping primary keys and supported data types
 lazy_static! {
+    static ref DECL_TYPE_BORSH: String = String::from("borsh");
+    static ref DECL_TYPE_SERDE: String = String::from("serde");
     static ref DECL_TYPE_KEY: String = String::from("type");
     static ref DECL_TYPE_KEY_TYPE: String = String::from("key_type");
     static ref DECL_TYPE_VALUE_TYPE: String = String::from("value_type");
@@ -23,6 +26,17 @@ lazy_static! {
     static ref DECL_TYPE_ASSOCIATIVE_TYPE: String = String::from("associative");
 }
 
+// Supported deserialization set of options
+lazy_static! {
+    static ref DECL_DESERIAL_SET: HashSet<String> = {
+        let mut hs = HashSet::<String>::new();
+        hs.insert(DECL_TYPE_BORSH.to_string());
+        hs.insert(DECL_TYPE_SERDE.to_string());
+        hs
+    };
+}
+
+// Set of type keys
 lazy_static! {
     static ref DECL_TYPE_SET: HashSet<String> = {
         let mut hs = HashSet::<String>::new();
@@ -32,6 +46,8 @@ lazy_static! {
         hs
     };
 }
+
+// Set of types
 lazy_static! {
     static ref TYPE_SET: HashSet<String> = {
         let mut hs = HashSet::<String>::new();
@@ -43,6 +59,8 @@ lazy_static! {
         hs
     };
 }
+
+/// DataDefinition describes the `data` for a given account
 #[derive(Debug, Deserialize)]
 struct DataDefinition {
     version: String,
@@ -52,7 +70,14 @@ struct DataDefinition {
 }
 
 impl DataDefinition {
+    /// Validates various keys and values in a yaml loaded
+    /// DataDefinition file
     fn check_types(&self) -> SadBaseResult {
+        if !DECL_DESERIAL_SET.contains(&self.deserializer) {
+            return Err(SadAppError::DataMappingUnknownDeserializer {
+                value: self.deserializer.clone(),
+            });
+        }
         for hlmap in self.data_mapping.keys() {
             let mymap = self.data_mapping.get(hlmap).unwrap();
             if !mymap.contains_key(&*DECL_TYPE_KEY) {
@@ -62,6 +87,22 @@ impl DataDefinition {
                     key: hlmap.clone(),
                     value: mymap.get(&*DECL_TYPE_KEY).unwrap().clone(),
                 });
+            }
+            if mymap.get(&*DECL_TYPE_KEY).unwrap() == &*DECL_TYPE_ASSOCIATIVE_TYPE {
+                if mymap.len() < 3 {
+                    return Err(SadAppError::DataMappingCountError {
+                        length: mymap.len(),
+                    });
+                }
+                for (key, value) in mymap.iter() {
+                    if !DECL_TYPE_SET.contains(key) || !TYPE_SET.contains(value) {
+                        return Err(SadAppError::DataMappingElementError {
+                            element: hlmap.clone(),
+                            key: key.clone(),
+                            value: value.clone(),
+                        });
+                    }
+                }
             }
         }
         Ok(())

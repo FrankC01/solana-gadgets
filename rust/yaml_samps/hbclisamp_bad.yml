@@ -6,6 +6,8 @@ data_mapping:
   initialized:
     type: bool
   btree_len:
+    type: u32
   btree:
     type: associative
     value_type: string
+    invalid_type: string
