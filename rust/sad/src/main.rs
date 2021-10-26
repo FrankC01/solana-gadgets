@@ -13,6 +13,7 @@ use {
 
 /// sad main module
 mod clparse;
+mod datainst;
 mod datamap;
 mod sad_errors;
 

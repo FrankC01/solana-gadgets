@@ -15,6 +15,8 @@ pub enum SadAppError {
     IoError(#[from] io::Error),
     #[error("\n{0}\n")]
     ConnectionError(ClientError),
+    #[error("Data type {dtype} unknown ")]
+    DataTypeUnknown { dtype: String },
     #[error("DataMapping deserializer '{value}' not supported ")]
     DataMappingUnknownDeserializer { value: String },
     #[error("DataMapping type '{key}' has no 'type' declared ")]
