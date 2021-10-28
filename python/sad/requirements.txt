@@ -1,0 +1,9 @@
+attrs==21.2.0
+autopep8==1.6.0
+borsh-construct==0.1.0
+construct==2.10.67
+construct-typing==0.5.2
+pycodestyle==2.8.0
+PyYAML==6.0
+sumtypes==0.1a5
+toml==0.10.2

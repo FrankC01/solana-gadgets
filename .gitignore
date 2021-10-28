@@ -1,2 +1,6 @@
+# Python excludes
+env/
+__pycache__
+# Rust excludes
 target/
 Cargo.lock
