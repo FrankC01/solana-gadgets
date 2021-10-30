@@ -75,7 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Some(acc) => Pubkey::from_str(acc).unwrap(),
                 None => config.default_signer.pubkey(),
             };
-            match dmap.map_accounts_data(&rpc_client, &account, config.commitment_config, false) {
+            match dmap.map_accounts_data(&rpc_client, &account, config.commitment_config, true) {
                 Ok(_) => println!("Successful deserialization of account"),
                 Err(e) => {
                     eprint!("{}", e)

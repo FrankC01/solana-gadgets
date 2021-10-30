@@ -1,4 +1,4 @@
-## solana-gadgets-rust source of various rust gadgets
+# solana-gadgets-python source of various python gadgets
 
 A repository of miscellaneous command line tools for solana
 
