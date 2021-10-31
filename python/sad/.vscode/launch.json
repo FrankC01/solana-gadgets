@@ -15,7 +15,7 @@
             "name": "sad test",
             "type": "python",
             "request": "launch",
-            "program": "./sad.py",
+            "program": "src/sad.py",
             "args": [
                 "-d",
                 "descriptors/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml",
