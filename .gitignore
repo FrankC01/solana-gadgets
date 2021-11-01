@@ -1,5 +1,6 @@
 # Python excludes
 env/
+.pytest_cache
 __pycache__
 # Rust excludes
 target/

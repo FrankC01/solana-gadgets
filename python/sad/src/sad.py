@@ -17,7 +17,7 @@ from solana.rpc.api import Client
 from solana.rpc.types import RPCResponse
 
 
-def get_keypair_from_file(key_pair_file: str) -> Keypair:
+def keypair_from_file(key_pair_file: str) -> Keypair:
     """Returns a KeyPair from a file"""
     with open(key_pair_file) as kpf:
         keypair = kpf.read()
@@ -27,52 +27,37 @@ def get_keypair_from_file(key_pair_file: str) -> Keypair:
     return Keypair(keypair[:32])
 
 
-def get_account_info(client: Client, pubkey: PublicKey) -> RPCResponse:
+def account_info(client: Client, pubkey: PublicKey) -> RPCResponse:
     """Fetch account information"""
     return client.get_account_info(pubkey, 'configrmed')
 
 
-def get_account_data_from_base64(client: Client, pubkey: PublicKey) -> bytes:
+def data_from_base64(client: Client, pubkey: PublicKey) -> bytes:
     """Fetches account info with data decoded into bytes"""
     try:
-        acc_info = get_account_info(client, pubkey)
+        acc_info = account_info(client, pubkey)
         return base64.urlsafe_b64decode(acc_info['result']['value']['data'][0])
     except Exception:
         print(f"RCP Connection error. Make sure you have access to Solana")
-        # print(f"{repr(re)}")
         return base64.urlsafe_b64decode("")
 
 
-def cmdline_get_public_key(args) -> PublicKey:
+def get_public_key(args) -> PublicKey:
     """Returns a Public from either a keyfile or str on the command line"""
-    return get_keypair_from_file(args.keypair).public_key
+    return keypair_from_file(args.keypair).public_key
 
 
-def main(args):
-    # print(f"Args = {args}")
-
+def main():
+    args = sad_cmd_parser().parse_args()
     try:
-        pubkey = cmdline_get_public_key(args)
+        pubkey = get_public_key(args)
+        # Make this optional via argparse
         client = Client("http://localhost:8899")
         dd = load_deserializer(Path(args.data_decl))
-        decodedBytes = get_account_data_from_base64(client, pubkey)
+        decodedBytes = data_from_base64(client, pubkey)
         if decodedBytes:
             mystream = io.BytesIO(decodedBytes)
             print(dd.deser(mystream))
-            # print(f"Initialized = {Bool.parse_stream(mystream)}")
-            # print(f"CSP {mystream.tell()}")
-            # y = U32.parse_stream(mystream)
-            # print(f"CSP {mystream.tell()}")
-
-            # print(
-            #     f"{HashMap(String, String).parse(mystream.read1(y+mystream.tell()))}")
-            # print(f"CSP {mystream.tell()}")
-            # y = U32.parse_stream(mystream)
-            # print(y)
-            # print(f"CSP {mystream.tell()}")
-            # mystream.seek(y+5, 1)
-            # print(x)
-            # print(f"Map = {myhm.parse(x)}")
         else:
             print(f"Empty data for {pubkey}")
     except Exception as e:
@@ -81,4 +66,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sad_cmd_parser().parse_args())
+    main()
