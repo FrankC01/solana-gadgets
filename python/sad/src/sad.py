@@ -9,6 +9,7 @@ generates a deserialized output"""
 import io
 import base64
 from cmdline import sad_cmd_parser
+from config import solana_config
 from datadeser import load_deserializer
 from pathlib import Path
 from solana.keypair import Keypair
@@ -29,7 +30,7 @@ def keypair_from_file(key_pair_file: str) -> Keypair:
 
 def account_info(client: Client, pubkey: PublicKey) -> RPCResponse:
     """Fetch account information"""
-    return client.get_account_info(pubkey, 'configrmed')
+    return client.get_account_info(pubkey, 'confirmed')
 
 
 def data_from_base64(client: Client, pubkey: PublicKey) -> bytes:
@@ -42,18 +43,30 @@ def data_from_base64(client: Client, pubkey: PublicKey) -> bytes:
         return base64.urlsafe_b64decode("")
 
 
-def get_public_key(args) -> PublicKey:
-    """Returns a Public from either a keyfile or str on the command line"""
-    return keypair_from_file(args.keypair).public_key
+def public_key_from_file(file_name: str) -> PublicKey:
+    return keypair_from_file(file_name).public_key
+
+
+def public_key_from_str(in_str: str) -> PublicKey:
+    return PublicKey(in_str)
 
 
 def main():
-    args = sad_cmd_parser().parse_args()
+    cfg = solana_config()
+    args = sad_cmd_parser(cfg).parse_args()
+
     try:
-        pubkey = get_public_key(args)
-        # Make this optional via argparse
-        client = Client("http://localhost:8899")
-        dd = load_deserializer(Path(args.data_decl))
+        print(args)
+        # Account's public key
+        if args.acc:
+            public_key_from_str(args.acc)
+        else:
+            pubkey = public_key_from_file(args.key)
+
+        # RPC URL to communicate with
+        client = Client(args.url)
+
+        dd = load_deserializer(Path(args.decl))
         decodedBytes = data_from_base64(client, pubkey)
         if decodedBytes:
             mystream = io.BytesIO(decodedBytes)

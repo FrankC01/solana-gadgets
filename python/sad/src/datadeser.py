@@ -14,40 +14,39 @@ from pathlib import Path
 import yaml
 from yaml.loader import SafeLoader
 
-_BORSH_TYPES = {
-    "I8": I8,
-    "I16": I16,
-    "I32": I32,
-    "I64": I64,
-    "I64": I128,
-    "U8": U8,
-    "U16": U16,
-    "U32": U32,
-    "U64": U64,
-    "U128": U128,
-    "F32": F32,
-    "F64": F64,
-    "Bool": Bool,
-    "Vec": Vec,
-    "Struct": CStruct,
-    "TupleStruct": TupleStruct,
-    "Bytes": Bytes,
-    "String": String,
-    "Enum": Enum,
-    "Option": Option,
-    "HashMap": HashMap,
-    "HashSet": HashSet,
-}
-
 
 class Node():
     """Base tree node"""
+    _BORSH_TYPES = {
+        "I8": I8,
+        "I16": I16,
+        "I32": I32,
+        "I64": I64,
+        "I64": I128,
+        "U8": U8,
+        "U16": U16,
+        "U32": U32,
+        "U64": U64,
+        "U128": U128,
+        "F32": F32,
+        "F64": F64,
+        "Bool": Bool,
+        "Vec": Vec,
+        "Struct": CStruct,
+        "TupleStruct": TupleStruct,
+        "Bytes": Bytes,
+        "String": String,
+        "Enum": Enum,
+        "Option": Option,
+        "HashMap": HashMap,
+        "HashSet": HashSet,
+    }
 
     def __init__(self, in_dict: dict) -> None:
         self._type = in_dict['type']
         self._serialized = in_dict['serialized']
-        if self._type in _BORSH_TYPES:
-            self._borsh_type = _BORSH_TYPES[self._type]
+        if self._type in self._BORSH_TYPES:
+            self._borsh_type = self._BORSH_TYPES[self._type]
             self._borsh_parse_fn = self._borsh_type.parse
             self._borsh_parse_stream_fn = self._borsh_type.parse_stream
         else:
