@@ -17,6 +17,13 @@ def sad_cmd_parser(in_cfg: Config):
                         default=in_cfg.rpc_url,
                         dest='url',
                         action='store')
+    parser.add_argument('-c', '--conf',
+                        help="Override Solana config commitment level",
+                        required=False,
+                        default=in_cfg.commitment,
+                        choices=['processed', 'confirmed', 'finalized'],
+                        dest='conf',
+                        action='store')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-k',
                        "--key",

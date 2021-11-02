@@ -7,6 +7,8 @@ from solana.keypair import Keypair
 
 
 class Config():
+    """Encapsulates the solana config settings"""
+
     _SOLANA_CONFIG_CMDLINE = 'solana config get'
 
     def __init__(self) -> None:
@@ -18,6 +20,7 @@ class Config():
         self._solana_config()
 
     def _solana_config(self) -> None:
+        """Internal config loader subprocess"""
         cmd = self._SOLANA_CONFIG_CMDLINE.split()
         process = Popen(cmd,
                         shell=False,
@@ -58,15 +61,6 @@ class Config():
     @ property
     def commitment(self) -> str:
         return self._commitment
-
-
-def solana_config(overrides=None) -> Config:
-    config = Config()
-    if overrides:
-        pass
-    else:
-        pass
-    return config
 
 
 if __name__ == "__main__":
