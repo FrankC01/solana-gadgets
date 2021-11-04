@@ -32,7 +32,7 @@ class Node():
         "F64": F64,
         "Bool": Bool,
         "Vec": Vec,
-        "Struct": CStruct,
+        "CStruct": CStruct,
         "Tuple": TupleStruct,
         "Bytes": Bytes,
         "String": String,
@@ -82,9 +82,25 @@ class Leaf(Node):
 
     def __init__(self, in_dict: dict) -> None:
         super().__init__(in_dict)
+        if self.borsh_type:
+            self._borsh_parse_fn = self._borsh_type.parse
+            self._borsh_parse_stream_fn = self._borsh_type.parse_stream
 
     def describe(self) -> None:
         super().describe()
+
+
+class NamedField(Leaf):
+    """Fields with names"""
+
+    def __init__(self, in_dict: dict) -> None:
+        inner_dict = in_dict['descriptor']
+        super().__init__(inner_dict)
+        self._name = inner_dict['name']
+
+    @property
+    def name(self) -> str:
+        return self._name
 
 
 class NodeContainer(Node):
@@ -92,9 +108,17 @@ class NodeContainer(Node):
 
     def __init__(self, container_name: str, in_dict: dict) -> None:
         super().__init__(in_dict)
+        self._container_name = container_name
         self._children = []
-        for list_item in in_dict[container_name]:
-            self._children.append(parse(list_item))
+        # Check for map
+        if isinstance(in_dict[container_name], dict):
+            self._children.append(parse(in_dict[container_name]))
+        elif isinstance(in_dict[container_name], list):
+            for list_item in in_dict[container_name]:
+                self._children.append(parse(list_item))
+        else:
+            raise ValueError(
+                f"Expected dict or list, found {type(in_dict[container_name])}")
 
     @property
     def children(self) -> list:
@@ -106,27 +130,26 @@ class NodeContainer(Node):
             c.describe()
 
 
-class ArrayNode(Node):
+class ArrayNode(NodeContainer):
     """Fixed array construct
 
     Has a size indicator as well as the inner variable type"""
 
     def __init__(self, container_name: str, in_dict: dict) -> None:
-        inner_decl = in_dict[container_name]
-        super().__init__(inner_decl)
-        self._array_size = inner_decl['elements']
-        self._borsh_parse_fn = self._borsh_type[self._array_size].parse
-        self._borsh_parse_stream_fn = self._borsh_type[self._array_size].parse_stream
+        super().__init__(container_name, in_dict)
+        self._array_size = in_dict['elements']
+        self._borsh_parse_fn = self.children[0].borsh_type[self._array_size].parse
+        self._borsh_parse_stream_fn = self.children[0].borsh_type[self._array_size].parse_stream
 
 
 class Vector(Node):
     """Vec construct"""
 
     def __init__(self, container_name: str, in_dict: dict) -> None:
-        super().__init__(in_dict[container_name])
-        self._veclass = self._BORSH_TYPES["Vec"]
-        self._borsh_parse_fn = self._veclass(self.borsh_type).parse
-        self._borsh_parse_stream_fn = self._veclass(
+        inner_decl = in_dict[container_name]
+        super().__init__(inner_decl)
+        self._borsh_parse_fn = self._BORSH_TYPES['Vec'](self.borsh_type).parse
+        self._borsh_parse_stream_fn = self._BORSH_TYPES['Vec'](
             self.borsh_type).parse_stream
 
 
@@ -139,6 +162,27 @@ class Tuple(NodeContainer):
             *[x.borsh_type for x in self.children],).parse
         self._borsh_parse_stream_fn = self._borsh_type(
             *[x.borsh_type for x in self.children],).parse_stream
+
+
+class Structure(NodeContainer):
+    """Struc construct"""
+
+    def __init__(self, container_name: str, in_dict: dict) -> None:
+        super().__init__(container_name, in_dict)
+        slist = []
+        for x in self.children:
+            slist.append((x.name / x.borsh_type))
+        self._borsh_parse_stream_fn = self.borsh_type(*slist).parse_stream
+        self._borsh_parse_fn = self.borsh_type(*slist).parse_stream
+
+    def deser_line(self, length: int, in_stream: BytesIO, result: list) -> list:
+        result.append(self._borsh_parse_fn(
+            in_stream.read1(length+in_stream.tell())))
+        return result
+
+    def deser(self, in_stream: BytesIO, result: list) -> list:
+        result.append(self._borsh_parse_stream_fn(in_stream))
+        return result
 
 
 class Map(NodeContainer):
@@ -167,9 +211,12 @@ class Map(NodeContainer):
 class Set(NodeContainer):
     """HashSet construct"""
 
-
-class Structure(NodeContainer):
-    """Struc construct"""
+    def __init__(self, container_name: str, in_dict: dict) -> None:
+        super().__init__(container_name, in_dict)
+        self._borsh_parse_fn = self.borsh_type(
+            self.children[0].borsh_type).parse
+        self._borsh_parse_stream_fn = self.borsh_type(
+            self.children[0].borsh_type).parse_stream
 
 
 class LengthPrefixNode(NodeContainer):
@@ -217,12 +264,13 @@ class Tree(NodeContainer):
 
 _BIG_MAP = {
     'length_prefix': partial(LengthPrefixNode, 'contains'),
-    'fixed_array': partial(ArrayNode, 'contains'),
-    'dynamic_array': partial(Vector, 'contains'),
+    'array': partial(ArrayNode, 'contains'),
+    "NamedField": NamedField,
+    'Vec': partial(Vector, 'contains'),
     'Tuple': partial(Tuple, 'fields'),
-    'HashMap': partial(Map, 'fields'),
-    'HashSet': partial(Set, 'fields'),
     'CStruct': partial(Structure, 'fields'),
+    'HashSet': partial(Set, 'contains'),
+    'HashMap': partial(Map, 'fields'),
 }
 
 

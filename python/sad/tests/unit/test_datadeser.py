@@ -32,7 +32,7 @@ def test_simple_tree_fail() -> None:
                 }
             }
     }
-    with pytest.raises(AttributeError):
+    with pytest.raises(ValueError):
         Tree(in_dict)
 
 
@@ -106,12 +106,12 @@ def test_fixed_arrays_pass() -> None:
             "foo": [
                 {
                     "arrays": {
-                        "type": 'fixed_array',
+                        "type": 'array',
                         "serialized": False,
+                        "elements": array_length,
                         "contains": {
                             "type": borsh_type,
                             "serialized": True,
-                            "elements": array_length
                         }
                     }
                 }
@@ -132,7 +132,7 @@ def test_vector_pass() -> None:
             "foo": [
                 {
                     "arrays": {
-                        "type": 'dynamic_array',
+                        "type": 'Vec',
                         "serialized": True,
                         "contains": {
                             "type": borsh_type,
@@ -179,3 +179,69 @@ def test_tuple_pass() -> None:
     assert tree is not None
     assert tree.deser(io.BytesIO(
         Tree._BORSH_TYPES['Tuple'](*tuple_types).build(tuple_values)))[0] == tuple_values
+
+
+def test_cstruc_pass():
+    struc_data = {'name': 'Alice', 'age': 50}
+    tree = Tree({
+        "foo": [
+            {
+                "strucs": {
+                    "type": 'CStruct',
+                    "serialized": True,
+                    "fields": [
+                        {
+                            "type": "NamedField",
+                            "serialized": True,
+                            "descriptor": {
+                                "name": "name",
+                                "type": "String",
+                                "serialized": False
+                            }
+                        },
+                        {
+                            "type": "NamedField",
+                            "serialized": True,
+                            "descriptor": {
+                                'name': "age",
+                                "type": "U32",
+                                "serialized": False
+                            }
+                        },
+                    ]
+                }
+            }
+        ]
+    })
+    assert tree is not None
+    struc = Tree._BORSH_TYPES['CStruct'](
+        'name' / Tree._BORSH_TYPES['String'],
+        'age' / Tree._BORSH_TYPES['U32'])
+    assert tree.deser(io.BytesIO(
+        struc.build(struc_data)))[0] == struc_data
+
+
+def test_hashset_pass() -> None:
+    array_types = ['U8', 'I8', 'String']
+    array_values = [{127, 65, 65}, {-126, -65, 92}, {'foo', 'bar', 'bar'}]
+    array_results = [{127, 65}, {-126, -65, 92}, {'foo', 'bar'}]
+    for i in range(len(array_types)):
+        borsh_type = array_types[i]
+        tree = Tree({
+            "foo": [
+                {
+                    "sets": {
+                        "type": 'HashSet',
+                        "serialized": True,
+                        "contains": {
+                            "type": borsh_type,
+                            "serialized": True
+                        }
+                    }
+                }
+            ]
+        })
+        assert tree is not None
+        assert tree.deser(io.BytesIO(
+            Tree._BORSH_TYPES['HashSet'](
+                Tree._BORSH_TYPES[borsh_type]).build(array_values[i])))[0] == array_results[i]
