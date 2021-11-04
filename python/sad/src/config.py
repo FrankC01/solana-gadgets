@@ -3,7 +3,6 @@
 Attempts to fetch `solana config` from underlying system
 """
 from subprocess import Popen, PIPE
-from solana.keypair import Keypair
 
 
 class Config():
@@ -64,5 +63,5 @@ class Config():
 
 
 if __name__ == "__main__":
-    for x, y in solana_config().__dict__.items():
+    for x, y in Config().__dict__.items():
         print(f"Field {x} = {y}")

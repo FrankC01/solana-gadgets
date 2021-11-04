@@ -22,7 +22,7 @@ class Node():
         "I16": I16,
         "I32": I32,
         "I64": I64,
-        "I64": I128,
+        "I128": I128,
         "U8": U8,
         "U16": U16,
         "U32": U32,
@@ -33,7 +33,7 @@ class Node():
         "Bool": Bool,
         "Vec": Vec,
         "Struct": CStruct,
-        "TupleStruct": TupleStruct,
+        "Tuple": TupleStruct,
         "Bytes": Bytes,
         "String": String,
         "Enum": Enum,
@@ -106,8 +106,39 @@ class NodeContainer(Node):
             c.describe()
 
 
-class Vector(NodeContainer):
+class ArrayNode(Node):
+    """Fixed array construct
+
+    Has a size indicator as well as the inner variable type"""
+
+    def __init__(self, container_name: str, in_dict: dict) -> None:
+        inner_decl = in_dict[container_name]
+        super().__init__(inner_decl)
+        self._array_size = inner_decl['elements']
+        self._borsh_parse_fn = self._borsh_type[self._array_size].parse
+        self._borsh_parse_stream_fn = self._borsh_type[self._array_size].parse_stream
+
+
+class Vector(Node):
     """Vec construct"""
+
+    def __init__(self, container_name: str, in_dict: dict) -> None:
+        super().__init__(in_dict[container_name])
+        self._veclass = self._BORSH_TYPES["Vec"]
+        self._borsh_parse_fn = self._veclass(self.borsh_type).parse
+        self._borsh_parse_stream_fn = self._veclass(
+            self.borsh_type).parse_stream
+
+
+class Tuple(NodeContainer):
+    """TupleStruct construct"""
+
+    def __init__(self, container_name: str, in_dict: dict) -> None:
+        super().__init__(container_name, in_dict)
+        self._borsh_parse_fn = self._borsh_type(
+            *[x.borsh_type for x in self.children],).parse
+        self._borsh_parse_stream_fn = self._borsh_type(
+            *[x.borsh_type for x in self.children],).parse_stream
 
 
 class Map(NodeContainer):
@@ -135,10 +166,6 @@ class Map(NodeContainer):
 
 class Set(NodeContainer):
     """HashSet construct"""
-
-
-class Tuple(NodeContainer):
-    """TupleStruct construct"""
 
 
 class Structure(NodeContainer):
@@ -170,9 +197,16 @@ class Tree(NodeContainer):
         self._type = 'tree'
         self._serialized = False
         self._children = []
-        for list_item in in_dict[self._name]:
-            for _, y in list_item.items():
-                self._children.append(parse(y))
+        if isinstance(in_dict[self._name], list):
+            for list_item in in_dict[self._name]:
+                if isinstance(list_item, dict):
+                    for _, y in list_item.items():
+                        self._children.append(parse(y))
+                else:
+                    raise ValueError(f'Expected dict found {type(list_item)}')
+        else:
+            raise ValueError(
+                f'Expected list found {type(in_dict[self._name])}')
 
     def deser(self, in_stream: BytesIO) -> list:
         result = []
@@ -183,11 +217,12 @@ class Tree(NodeContainer):
 
 _BIG_MAP = {
     'length_prefix': partial(LengthPrefixNode, 'contains'),
+    'fixed_array': partial(ArrayNode, 'contains'),
+    'dynamic_array': partial(Vector, 'contains'),
+    'Tuple': partial(Tuple, 'fields'),
     'HashMap': partial(Map, 'fields'),
     'HashSet': partial(Set, 'fields'),
-    'Tuple': partial(Tuple, 'fields'),
     'CStruct': partial(Structure, 'fields'),
-    "Vec": partial(Vector, 'fields'),
 }
 
 
@@ -209,11 +244,11 @@ class Deserializer():
         self._declaration = my_dict
         self._tree = Tree(my_dict)
 
-    @property
+    @ property
     def declaration(self) -> dict:
         return self._declaration
 
-    @property
+    @ property
     def tree(self) -> Tree:
         """Deserializer tree"""
         return self._tree

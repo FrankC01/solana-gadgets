@@ -1,4 +1,5 @@
 import base64
+from borsh_construct import *
 import io
 from pathlib import Path
 import pytest
@@ -7,7 +8,7 @@ import yaml
 from yaml.cyaml import CSafeLoader
 
 
-def test_simple_tree_pass():
+def test_simple_tree_pass() -> None:
     in_dict = {
         "foo": [
             {
@@ -21,7 +22,7 @@ def test_simple_tree_pass():
     Tree(in_dict)
 
 
-def test_simple_tree_fail():
+def test_simple_tree_fail() -> None:
     in_dict = {
         "foo":
             {
@@ -35,27 +36,27 @@ def test_simple_tree_fail():
         Tree(in_dict)
 
 
-def test_tree_load_pass():
+def test_tree_load_pass() -> None:
     valid_path = Path(
         "descriptors/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml")
     with open(valid_path) as f:
         Tree(yaml.load(f, Loader=CSafeLoader))
 
 
-def test_load_file_pass():
+def test_load_file_pass() -> None:
     valid_path = Path(
         "descriptors/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml")
     load_deserializer(valid_path)
 
 
-def test_load_file_fail():
+def test_load_file_fail() -> None:
     invalid_path = Path(
         "SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml")
     with pytest.raises(FileNotFoundError):
         load_deserializer(invalid_path)
 
 
-def test_deserialize_simple():
+def test_deserialize_simple() -> None:
     pacc = 'ASUAAAABAAAABAAAAEFLZXkVAAAATWludGVkIGtleSB2YWx1ZSBwYWlyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=='
     decodedBytes = base64.urlsafe_b64decode(pacc)
     valid_path = Path(
@@ -63,3 +64,118 @@ def test_deserialize_simple():
     dd = load_deserializer(valid_path)
     res = dd.deser(io.BytesIO(decodedBytes))
     assert res == [True, 37, {'AKey': 'Minted key value pair'}]
+
+
+def test_scalars_pass() -> None:
+    scalar_types = ['Bool',
+                    'U8', 'U16', 'U32', 'U64', 'U128',
+                    'I8', 'I16', 'I32', 'I64', 'I128',
+                    'F32', 'F64']
+    results = [True,
+               255, 65535, 4294967295, 18446744073709551615, 340282366920938463463374607431768211455,
+               -128, -32768, -2147483648, -9223372036854775808, -
+               170141183460469231731687303715884105728,
+               0.05000000074505806, -0.05]
+    for i in range(len(scalar_types)):
+        borsh_type = scalar_types[i]
+        borsh_class = Tree._BORSH_TYPES[borsh_type]
+        tree = Tree({
+            "foo": [
+                {
+                    "initialized": {
+                        "type": borsh_type,
+                        "serialized": True
+                    }
+                }
+            ]
+        })
+        assert tree is not None
+        assert tree.deser(io.BytesIO(borsh_class.build(results[i]))) == [
+            results[i]]
+
+
+def test_fixed_arrays_pass() -> None:
+    array_types = ['U8', 'I8', 'String']
+    array_sized = [3, 3, 3]
+    array_values = [[127, 65, 254], [-126, -65, 92], ['foo', 'bar', 'baz']]
+    array_length = len(array_types)
+    for i in range(len(array_types)):
+        borsh_type = array_types[i]
+        borsh_class = Tree._BORSH_TYPES[borsh_type]
+        tree = Tree({
+            "foo": [
+                {
+                    "arrays": {
+                        "type": 'fixed_array',
+                        "serialized": False,
+                        "contains": {
+                            "type": borsh_type,
+                            "serialized": True,
+                            "elements": array_length
+                        }
+                    }
+                }
+            ]
+        })
+        assert tree is not None
+        results = array_values[i]
+        assert tree.deser(io.BytesIO(
+            borsh_class[array_length].build(results)))[0] == results
+
+
+def test_vector_pass() -> None:
+    array_types = ['U8', 'I8', 'String']
+    array_values = [[127, 65, 254], [-126, -65, 92], ['foo', 'bar', 'baz']]
+    for i in range(len(array_types)):
+        borsh_type = array_types[i]
+        tree = Tree({
+            "foo": [
+                {
+                    "arrays": {
+                        "type": 'dynamic_array',
+                        "serialized": True,
+                        "contains": {
+                            "type": borsh_type,
+                            "serialized": True
+                        }
+                    }
+                }
+            ]
+        })
+        assert tree is not None
+        results = array_values[i]
+        assert tree.deser(io.BytesIO(
+            Tree._BORSH_TYPES['Vec'](Tree._BORSH_TYPES[borsh_type]).build(results)))[0] == results
+
+
+def test_tuple_pass() -> None:
+    tuple_fields = ['U8', 'I8', 'String']
+    tuple_values = [127,  -65, 'foo']
+    tuple_types = [Tree._BORSH_TYPES[x] for x in tuple_fields]
+    tree = Tree({
+        "foo": [
+            {
+                "tuples": {
+                    "type": 'Tuple',
+                    "serialized": True,
+                    "fields": [
+                        {
+                            "type": tuple_fields[0],
+                            "serialized": False
+                        },
+                        {
+                            "type": tuple_fields[1],
+                            "serialized": False
+                        },
+                        {
+                            "type": tuple_fields[2],
+                            "serialized": False
+                        },
+                    ]
+                }
+            }
+        ]
+    })
+    assert tree is not None
+    assert tree.deser(io.BytesIO(
+        Tree._BORSH_TYPES['Tuple'](*tuple_types).build(tuple_values)))[0] == tuple_values
