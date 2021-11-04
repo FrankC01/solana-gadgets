@@ -47,8 +47,6 @@ class Node():
         self._serialized = in_dict['serialized']
         if self._type in self._BORSH_TYPES:
             self._borsh_type = self._BORSH_TYPES[self._type]
-            self._borsh_parse_fn = self._borsh_type.parse
-            self._borsh_parse_stream_fn = self._borsh_type.parse_stream
         else:
             self._borsh_type = None
 
@@ -142,15 +140,15 @@ class ArrayNode(NodeContainer):
         self._borsh_parse_stream_fn = self.children[0].borsh_type[self._array_size].parse_stream
 
 
-class Vector(Node):
+class Vector(NodeContainer):
     """Vec construct"""
 
     def __init__(self, container_name: str, in_dict: dict) -> None:
-        inner_decl = in_dict[container_name]
-        super().__init__(inner_decl)
-        self._borsh_parse_fn = self._BORSH_TYPES['Vec'](self.borsh_type).parse
-        self._borsh_parse_stream_fn = self._BORSH_TYPES['Vec'](
-            self.borsh_type).parse_stream
+        super().__init__(container_name, in_dict)
+        self._borsh_parse_fn = self.borsh_type(
+            self.children[0].borsh_type).parse
+        self._borsh_parse_stream_fn = self.borsh_type(
+            self.children[0].borsh_type).parse_stream
 
 
 class Tuple(NodeContainer):
@@ -225,6 +223,8 @@ class LengthPrefixNode(NodeContainer):
     def __init__(self, container_name: str, in_dict: dict) -> None:
         in_dict['type'] = in_dict['size_type']
         super().__init__(container_name, in_dict)
+        self._borsh_parse_fn = self.borsh_type.parse
+        self._borsh_parse_stream_fn = self.borsh_type.parse_stream
 
     def describe(self) -> None:
         print(f"consumes {self.in_type} to get length of:")
@@ -265,11 +265,11 @@ class Tree(NodeContainer):
 _BIG_MAP = {
     'length_prefix': partial(LengthPrefixNode, 'contains'),
     'array': partial(ArrayNode, 'contains'),
-    "NamedField": NamedField,
     'Vec': partial(Vector, 'contains'),
+    'HashSet': partial(Set, 'contains'),
+    "NamedField": NamedField,
     'Tuple': partial(Tuple, 'fields'),
     'CStruct': partial(Structure, 'fields'),
-    'HashSet': partial(Set, 'contains'),
     'HashMap': partial(Map, 'fields'),
 }
 
