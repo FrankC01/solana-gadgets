@@ -245,3 +245,30 @@ def test_hashset_pass() -> None:
         assert tree.deser(io.BytesIO(
             Tree._BORSH_TYPES['HashSet'](
                 Tree._BORSH_TYPES[borsh_type]).build(array_values[i])))[0] == array_results[i]
+
+
+def test_option_pass() -> None:
+    array_types = ['U8', 'String']
+    value_counts = 2
+    array_values = [[None, 255], ['foo', None]]
+    for i in range(len(array_types)):
+        borsh_type = array_types[i]
+        tree = Tree({
+            "foo": [
+                {
+                    "arrays": {
+                        "type": 'Option',
+                        "serialized": True,
+                        "contains": {
+                            "type": borsh_type,
+                            "serialized": True
+                        }
+                    }
+                }
+            ]
+        })
+        assert tree is not None
+        for j in range(value_counts):
+            result = array_values[i][j]
+            assert tree.deser(io.BytesIO(
+                Tree._BORSH_TYPES['Option'](Tree._BORSH_TYPES[borsh_type]).build(result)))[0] == result

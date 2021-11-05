@@ -162,6 +162,17 @@ class Tuple(NodeContainer):
             *[x.borsh_type for x in self.children],).parse_stream
 
 
+class Opt(NodeContainer):
+    """Option construct"""
+
+    def __init__(self, container_name: str, in_dict: dict) -> None:
+        super().__init__(container_name, in_dict)
+        self._borsh_parse_fn = self.borsh_type(
+            self.children[0].borsh_type).parse
+        self._borsh_parse_stream_fn = self.borsh_type(
+            self.children[0].borsh_type).parse_stream
+
+
 class Structure(NodeContainer):
     """Struc construct"""
 
@@ -266,6 +277,7 @@ _BIG_MAP = {
     'length_prefix': partial(LengthPrefixNode, 'contains'),
     'array': partial(ArrayNode, 'contains'),
     'Vec': partial(Vector, 'contains'),
+    'Option': partial(Opt, 'contains'),
     'HashSet': partial(Set, 'contains'),
     "NamedField": NamedField,
     'Tuple': partial(Tuple, 'fields'),
