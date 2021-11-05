@@ -14,7 +14,6 @@ def test_simple_tree_pass() -> None:
             {
                 "initialized": {
                     "type": "Bool",
-                    "serialized": False
                 }
             }
         ]
@@ -28,7 +27,6 @@ def test_simple_tree_fail() -> None:
             {
                 "initialized": {
                     "type": "Bool",
-                    "serialized": False
                 }
             }
     }
@@ -84,7 +82,6 @@ def test_scalars_pass() -> None:
                 {
                     "initialized": {
                         "type": borsh_type,
-                        "serialized": True
                     }
                 }
             ]
@@ -107,11 +104,9 @@ def test_fixed_arrays_pass() -> None:
                 {
                     "arrays": {
                         "type": 'array',
-                        "serialized": False,
                         "elements": array_length,
                         "contains": {
                             "type": borsh_type,
-                            "serialized": True,
                         }
                     }
                 }
@@ -133,10 +128,8 @@ def test_vector_pass() -> None:
                 {
                     "arrays": {
                         "type": 'Vec',
-                        "serialized": True,
                         "contains": {
                             "type": borsh_type,
-                            "serialized": True
                         }
                     }
                 }
@@ -157,19 +150,15 @@ def test_tuple_pass() -> None:
             {
                 "tuples": {
                     "type": 'Tuple',
-                    "serialized": True,
                     "fields": [
                         {
                             "type": tuple_fields[0],
-                            "serialized": False
                         },
                         {
                             "type": tuple_fields[1],
-                            "serialized": False
                         },
                         {
                             "type": tuple_fields[2],
-                            "serialized": False
                         },
                     ]
                 }
@@ -188,24 +177,19 @@ def test_cstruc_pass():
             {
                 "strucs": {
                     "type": 'CStruct',
-                    "serialized": True,
                     "fields": [
                         {
                             "type": "NamedField",
-                            "serialized": True,
                             "descriptor": {
                                 "name": "name",
                                 "type": "String",
-                                "serialized": False
                             }
                         },
                         {
                             "type": "NamedField",
-                            "serialized": True,
                             "descriptor": {
                                 'name': "age",
                                 "type": "U32",
-                                "serialized": False
                             }
                         },
                     ]
@@ -232,10 +216,8 @@ def test_hashset_pass() -> None:
                 {
                     "sets": {
                         "type": 'HashSet',
-                        "serialized": True,
                         "contains": {
                             "type": borsh_type,
-                            "serialized": True
                         }
                     }
                 }
@@ -258,10 +240,8 @@ def test_option_pass() -> None:
                 {
                     "arrays": {
                         "type": 'Option',
-                        "serialized": True,
                         "contains": {
                             "type": borsh_type,
-                            "serialized": True
                         }
                     }
                 }

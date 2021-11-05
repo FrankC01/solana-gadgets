@@ -44,7 +44,6 @@ class Node():
 
     def __init__(self, in_dict: dict) -> None:
         self._type = in_dict['type']
-        self._serialized = in_dict['serialized']
         if self._type in self._BORSH_TYPES:
             self._borsh_type = self._BORSH_TYPES[self._type]
         else:
@@ -58,12 +57,8 @@ class Node():
     def borsh_type(self):
         return self._borsh_type
 
-    @property
-    def serialized(self) -> bool:
-        return self._serialized
-
     def describe(self) -> None:
-        print(f"Type {self.in_type} serialized = {self.serialized}")
+        print(f"Type {self.in_type}")
 
     def deser_line(self, length: int, in_stream: BytesIO, result: list) -> list:
         result.append(self._borsh_parse_fn(
@@ -253,7 +248,6 @@ class Tree(NodeContainer):
     def __init__(self, in_dict: dict):
         self._name = [*in_dict][0]
         self._type = 'tree'
-        self._serialized = False
         self._children = []
         if isinstance(in_dict[self._name], list):
             for list_item in in_dict[self._name]:

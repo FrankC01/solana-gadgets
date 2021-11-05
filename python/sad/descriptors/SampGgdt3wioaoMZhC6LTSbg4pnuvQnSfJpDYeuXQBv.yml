@@ -2,16 +2,11 @@
 SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv:
     - initialized:
         type: Bool
-        serialized: false
     - size_and_map:
         type: length_prefix
         size_type: U32
-        serialized: false
         contains:
           - type: HashMap
-            serialized: true
             fields:
               - type: String
-                serialized: false
               - type: String
-                serialized: false
