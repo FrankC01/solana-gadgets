@@ -24,18 +24,31 @@ def sad_cmd_parser(in_cfg: Config):
                         choices=['processed', 'confirmed', 'finalized'],
                         dest='conf',
                         action='store')
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument('-k',
-                       "--key",
-                       help="Override Solana configs default keypair",
-                       required=False,
-                       default=in_cfg.default_keypair,
-                       dest='key',
-                       action='store')
-    group.add_argument('-a',
-                       "--acc",
-                       help="Account public key string",
-                       required=False,
-                       dest='acc',
-                       action='store')
+    key_group = parser.add_mutually_exclusive_group()
+    key_group.add_argument('-k',
+                           "--key",
+                           help="Override Solana configs default keypair",
+                           required=False,
+                           default=in_cfg.default_keypair,
+                           dest='key',
+                           action='store')
+    key_group.add_argument('-a',
+                           "--acc",
+                           help="Account public key string",
+                           required=False,
+                           dest='acc',
+                           action='store')
+    granularity_group = parser.add_mutually_exclusive_group()
+    granularity_group.add_argument('-p',
+                                   "--program",
+                                   help="Fetch all program accounts",
+                                   required=False,
+                                   dest='program',
+                                   action='store_true')
+    granularity_group.add_argument('-s',
+                                   "--single",
+                                   help="Fetches one program owned account",
+                                   required=False,
+                                   dest='single',
+                                   action='store_true')
     return parser

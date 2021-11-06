@@ -12,6 +12,7 @@ from cmdline import sad_cmd_parser
 from config import Config
 from datadeser import load_deserializer
 from pathlib import Path
+from sad_account import SadAccountInfo
 from solana.keypair import Keypair
 from solana.publickey import PublicKey
 from solana.rpc.api import Client
@@ -39,8 +40,18 @@ def public_key_from_str(in_str: str) -> PublicKey:
 
 
 def account_info(client: Client, pubkey: PublicKey, confirmation: str) -> RPCResponse:
-    """Fetch account information"""
-    return client.get_account_info(pubkey, confirmation)
+    """Fetch account information
+
+    Used to fetch one (1) account"""
+    res = client.get_account_info(pubkey, confirmation)
+    print(res)
+    return res
+
+
+def program_accounts(client: Client, prod_pk: PublicKey, confirmation: str) -> list:
+    """"""
+    res = client.get_program_accounts(prod_pk, confirmation, encoding='base64')
+    return res['result']
 
 
 def data_from_base64(client: Client, pubkey: PublicKey, confirmation: str) -> bytes:
@@ -59,21 +70,33 @@ def main():
 
     try:
         # Account's public key
+        pubkey = None
         if args.acc:
-            public_key_from_str(args.acc)
+            pubkey = public_key_from_str(args.acc)
         else:
             pubkey = public_key_from_file(args.key)
 
         # RPC URL to communicate with
         client = Client(args.url)
-
+        # Data deserializer declarations
         dd = load_deserializer(Path(args.decl))
-        decodedBytes = data_from_base64(client, pubkey, args.conf)
-        if decodedBytes:
-            mystream = io.BytesIO(decodedBytes)
-            print(dd.deser(mystream))
+        accounts = None
+        if args.single:
+            accounts = SadAccountInfo.single_account(client, pubkey, args.conf)
+        elif args.program:
+            accounts = SadAccountInfo.program_accounts(
+                client, pubkey, args.conf)
         else:
-            print(f"Empty data for {pubkey}")
+            print("Must supply -p (--program) or -s (--single)  options")
+        if accounts:
+            for acc in accounts:
+                if acc.data:
+                    print(
+                        f"Account: {acc.account_key} {dd.deser(io.BytesIO(acc.data))}")
+                else:
+                    print(f"Empty data for {pubkey}")
+        else:
+            pass
     except Exception as e:
         print(f"Terminating due to exception {e}")
     return 0
