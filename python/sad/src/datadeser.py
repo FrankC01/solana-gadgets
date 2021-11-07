@@ -316,7 +316,7 @@ class Deserializer():
         return self.tree.deser(in_stream)
 
 
-def load_deserializer(file_name: Path) -> Deserializer:
+def deserializer(file_name: Path) -> Deserializer:
     """Load and parse the data deserialize declaration"""
     with open(file_name) as f:
         return Deserializer(yaml.load(f, Loader=SafeLoader))
