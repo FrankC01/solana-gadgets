@@ -36,6 +36,6 @@ src/sad.py account -k tests/keys/user1_account.json -d tests/descriptors/SampGgd
 3. To see `user2` account data where account key is from command line string:
 ```bash
 src/sad.py account -p 5gMsBeLmPkwEKQ1H2AwceAPasXLyZ4tvWGCYR59qf47U -d tests/descriptors/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml
->> Account: A94wMjV54C8f8wn7zL8TxNCdNiGoq7XSN7vWGrtd4vwU [True, 4, {}]
+>> Account: 5gMsBeLmPkwEKQ1H2AwceAPasXLyZ4tvWGCYR59qf47U [True, 27, {'Dev1': 'A new value'}]
 ```
 Depending on what you minted (key/value) your mileage may vary
