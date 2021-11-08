@@ -96,22 +96,22 @@ class NamedField(Leaf):
         return self._name
 
 
-class NodeContainer(Node):
+class NodeWithChildren(Node):
     """Node that contains nodes"""
 
-    def __init__(self, container_name: str, in_dict: dict) -> None:
+    def __init__(self, container_key_name: str, in_dict: dict) -> None:
         super().__init__(in_dict)
-        self._container_name = container_name
+        self._container_key_name = container_key_name
         self._children = []
         # Check for map
-        if isinstance(in_dict[container_name], dict):
-            self._children.append(parse(in_dict[container_name]))
-        elif isinstance(in_dict[container_name], list):
-            for list_item in in_dict[container_name]:
+        if isinstance(in_dict[container_key_name], dict):
+            self._children.append(parse(in_dict[container_key_name]))
+        elif isinstance(in_dict[container_key_name], list):
+            for list_item in in_dict[container_key_name]:
                 self._children.append(parse(list_item))
         else:
             raise ValueError(
-                f"Expected dict or list, found {type(in_dict[container_name])}")
+                f"Expected dict or list, found {type(in_dict[container_key_name])}")
 
     @property
     def children(self) -> list:
@@ -123,56 +123,59 @@ class NodeContainer(Node):
             c.describe()
 
 
-class ArrayNode(NodeContainer):
-    """Fixed array construct
+class SingleNodeContainer(NodeWithChildren):
+    """"""
 
-    Has a size indicator as well as the inner variable type"""
-
-    def __init__(self, container_name: str, in_dict: dict) -> None:
-        super().__init__(container_name, in_dict)
-        self._array_size = in_dict['elements']
-        self._borsh_parse_fn = self.children[0].borsh_type[self._array_size].parse
-        self._borsh_parse_stream_fn = self.children[0].borsh_type[self._array_size].parse_stream
-
-
-class Vector(NodeContainer):
-    """Vec construct"""
-
-    def __init__(self, container_name: str, in_dict: dict) -> None:
-        super().__init__(container_name, in_dict)
+    def __init__(self, container_key_name: str, in_dict: dict) -> None:
+        super().__init__(container_key_name, in_dict)
         self._borsh_parse_fn = self.borsh_type(
             self.children[0].borsh_type).parse
         self._borsh_parse_stream_fn = self.borsh_type(
             self.children[0].borsh_type).parse_stream
 
 
-class Tuple(NodeContainer):
+class ArrayNode(NodeWithChildren):
+    """Fixed array construct
+
+    Has a size indicator as well as the inner variable type"""
+
+    def __init__(self, container_key_name: str, in_dict: dict) -> None:
+        super().__init__(container_key_name, in_dict)
+        self._array_size = in_dict['elements']
+        self._borsh_parse_fn = self.children[0].borsh_type[self._array_size].parse
+        self._borsh_parse_stream_fn = self.children[0].borsh_type[self._array_size].parse_stream
+
+
+class Vector(SingleNodeContainer):
+    """Vec construct"""
+
+    def __init__(self, container_key_name: str, in_dict: dict) -> None:
+        super().__init__(container_key_name, in_dict)
+
+
+class Tuple(NodeWithChildren):
     """TupleStruct construct"""
 
-    def __init__(self, container_name: str, in_dict: dict) -> None:
-        super().__init__(container_name, in_dict)
+    def __init__(self, container_key_name: str, in_dict: dict) -> None:
+        super().__init__(container_key_name, in_dict)
         self._borsh_parse_fn = self._borsh_type(
             *[x.borsh_type for x in self.children],).parse
         self._borsh_parse_stream_fn = self._borsh_type(
             *[x.borsh_type for x in self.children],).parse_stream
 
 
-class Opt(NodeContainer):
+class Opt(SingleNodeContainer):
     """Option construct"""
 
-    def __init__(self, container_name: str, in_dict: dict) -> None:
-        super().__init__(container_name, in_dict)
-        self._borsh_parse_fn = self.borsh_type(
-            self.children[0].borsh_type).parse
-        self._borsh_parse_stream_fn = self.borsh_type(
-            self.children[0].borsh_type).parse_stream
+    def __init__(self, container_key_name: str, in_dict: dict) -> None:
+        super().__init__(container_key_name, in_dict)
 
 
-class Structure(NodeContainer):
+class Structure(NodeWithChildren):
     """Struc construct"""
 
-    def __init__(self, container_name: str, in_dict: dict) -> None:
-        super().__init__(container_name, in_dict)
+    def __init__(self, container_key_name: str, in_dict: dict) -> None:
+        super().__init__(container_key_name, in_dict)
         slist = []
         for x in self.children:
             slist.append((x.name / x.borsh_type))
@@ -189,11 +192,11 @@ class Structure(NodeContainer):
         return result
 
 
-class Map(NodeContainer):
+class Map(NodeWithChildren):
     """HashMap construct"""
 
-    def __init__(self, container_name: str, in_dict: dict) -> None:
-        super().__init__(container_name, in_dict)
+    def __init__(self, container_key_name: str, in_dict: dict) -> None:
+        super().__init__(container_key_name, in_dict)
         self._borsh_parse_fn = self._borsh_type(
             *[x.borsh_type for x in self.children],).parse
         self._borsh_parse_stream_fn = self._borsh_type(
@@ -212,23 +215,19 @@ class Map(NodeContainer):
         return result
 
 
-class Set(NodeContainer):
+class Set(SingleNodeContainer):
     """HashSet construct"""
 
-    def __init__(self, container_name: str, in_dict: dict) -> None:
-        super().__init__(container_name, in_dict)
-        self._borsh_parse_fn = self.borsh_type(
-            self.children[0].borsh_type).parse
-        self._borsh_parse_stream_fn = self.borsh_type(
-            self.children[0].borsh_type).parse_stream
+    def __init__(self, container_key_name: str, in_dict: dict) -> None:
+        super().__init__(container_key_name, in_dict)
 
 
-class LengthPrefixNode(NodeContainer):
+class LengthPrefixNode(NodeWithChildren):
     """Has a length associated to size of contained type"""
 
-    def __init__(self, container_name: str, in_dict: dict) -> None:
+    def __init__(self, container_key_name: str, in_dict: dict) -> None:
         in_dict['type'] = in_dict['size_type']
-        super().__init__(container_name, in_dict)
+        super().__init__(container_key_name, in_dict)
         self._borsh_parse_fn = self.borsh_type.parse
         self._borsh_parse_stream_fn = self.borsh_type.parse_stream
 
@@ -244,7 +243,7 @@ class LengthPrefixNode(NodeContainer):
         return result
 
 
-class Tree(NodeContainer):
+class Tree(NodeWithChildren):
     def __init__(self, in_dict: dict):
         self._name = [*in_dict][0]
         self._type = 'tree'

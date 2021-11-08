@@ -15,6 +15,7 @@ use {
 mod clparse;
 mod datainst;
 mod datamap;
+mod junk;
 mod sad_errors;
 
 struct Config {
