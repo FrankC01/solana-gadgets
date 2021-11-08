@@ -74,7 +74,7 @@ SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv: # Can be arbitrary but this is an a
         type: Bool              # byte 0
     - size_and_map:
         type: length_prefix
-        size_type: U32          # byte 4
+        size_type: U32          # byte 1-4
         contains:
           - type: HashMap       # byte 5 through bytes from deserializing 'size_type' above
             fields:
