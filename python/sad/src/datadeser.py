@@ -11,6 +11,7 @@ from enum import Enum, auto
 from functools import partial
 from io import BytesIO
 from pathlib import Path
+from solana import publickey
 import yaml
 from yaml.loader import SafeLoader
 
@@ -94,6 +95,22 @@ class NamedField(Leaf):
     @property
     def name(self) -> str:
         return self._name
+
+
+class PublicKey(Leaf):
+    """Solana PublicKey (U8[32])"""
+    _KEYLEN = 32
+    _KEYTYPE = {"type": "U8"}
+
+    def __init__(self, in_dict: dict) -> None:
+        super().__init__(self._KEYTYPE)
+        self._borsh_parse_fn = self.borsh_type[self._KEYLEN].parse
+        self._borsh_parse_stream_fn = self.borsh_type[self._KEYLEN].parse_stream
+
+    def deser(self, in_stream: BytesIO, result: list) -> list:
+        result.append(publickey.PublicKey(
+            self._borsh_parse_stream_fn(in_stream)))
+        return result
 
 
 class NodeWithChildren(Node):
@@ -273,6 +290,7 @@ _BIG_MAP = {
     'Option': partial(Opt, 'contains'),
     'HashSet': partial(Set, 'contains'),
     "NamedField": NamedField,
+    "PublicKey": PublicKey,
     'Tuple': partial(Tuple, 'fields'),
     'CStruct': partial(Structure, 'fields'),
     'HashMap': partial(Map, 'fields'),

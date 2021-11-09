@@ -3,6 +3,7 @@ from borsh_construct import *
 import io
 from pathlib import Path
 import pytest
+from solana.publickey import PublicKey
 from src.datadeser import Tree, deserializer
 import yaml
 from yaml.cyaml import CSafeLoader
@@ -252,3 +253,21 @@ def test_option_pass() -> None:
             result = array_values[i][j]
             assert tree.deser(io.BytesIO(
                 Tree._BORSH_TYPES['Option'](Tree._BORSH_TYPES[borsh_type]).build(result)))[0] == result
+
+
+def test_pubkey_pass() -> None:
+    pubkey = PublicKey("SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv")
+    pubkey_class = Tree._BORSH_TYPES["U8"]
+    tree = Tree({
+        "foo": [
+            {
+                "my_key": {
+                    "type": 'PublicKey',
+                }
+            }
+        ]
+    })
+
+    bbuild = pubkey_class[PublicKey.LENGTH].build(pubkey._key)
+    out_key = tree.deser(io.BytesIO(bbuild))[0]
+    assert out_key == pubkey
