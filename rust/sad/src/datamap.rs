@@ -1,230 +1,159 @@
-//! @brief Data map
+use borsh::BorshDeserialize;
+use std::{collections::HashMap, str::FromStr};
+use strum::{EnumIter, EnumString, EnumVariantNames, VariantNames};
 
-use crate::{
-    datainst::*,
-    sad_errors::{SadAppError, SadBaseResult, SadTypeResult},
-};
-use gadgets_common::load_yaml_file;
-use lazy_static::lazy_static;
-use serde::Deserialize;
-use solana_client::rpc_client::RpcClient;
-use solana_sdk::{account::ReadableAccount, commitment_config::CommitmentConfig, pubkey::Pubkey};
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    path::Path,
-};
-
-// Supported deserialization set of options
-lazy_static! {
-    pub static ref DECL_DESERIAL_SET: BTreeSet<String> = {
-        let mut hs = BTreeSet::<String>::new();
-        hs.insert(DECL_TYPE_BORSH.to_string());
-        hs.insert(DECL_TYPE_SERDE.to_string());
-        hs
-    };
+#[derive(Debug, EnumString, EnumIter, EnumVariantNames)]
+pub enum SadValue {
+    String(String),
+    Bool(bool),
+    U8(u8),
+    U16(u16),
+    U32(u32),
+    U64(u64),
+    U128(u128),
+    I8(i8),
+    I16(i16),
+    I32(i32),
+    I64(i64),
+    I128(i128),
+    F32(f32),
+    F64(f64),
+    List(Vec<SadValue>),
+    Tuple(Vec<SadValue>),
+    HashMap(HashMap<SadValue, SadValue>),
+    CStruct(HashMap<SadValue, SadValue>),
 }
 
-// Set of type keys
-lazy_static! {
-    pub static ref DECL_TYPE_SET: BTreeSet<String> = {
-        let mut hs = BTreeSet::<String>::new();
-        hs.insert(DECL_TYPE_KEY.to_string());
-        hs.insert(DECL_TYPE_KEY_TYPE.to_string());
-        hs.insert(DECL_TYPE_VALUE_TYPE.to_string());
-        hs
-    };
+pub fn sad_value_from_sting(in_str: &str) -> SadValue {
+    SadValue::from_str(in_str).unwrap()
 }
 
-// Set of types
-lazy_static! {
-    pub static ref TYPE_SET: BTreeSet<String> = {
-        let mut hs = BTreeSet::<String>::new();
-        hs.insert(DECL_TYPE_BOOL_TYPE.to_string());
-        hs.insert(DECL_TYPE_U32_TYPE.to_string());
-        hs.insert(DECL_TYPE_U64_TYPE.to_string());
-        hs.insert(DECL_TYPE_STRING_TYPE.to_string());
-        hs.insert(DECL_TYPE_ASSOCIATIVE_TYPE.to_string());
-        hs.insert(DECL_TYPE_ARRAY_TYPE.to_string());
-        hs
-    };
-}
-
-/// DataDefinition describes the `data` for a given account
-#[derive(Debug, Deserialize)]
-pub struct DataDefinition {
-    version: String,
-    deserializer: String,
-    total_data_size: u32,
-    data_mapping: BTreeMap<String, BTreeMap<String, String>>,
-}
-
-impl DataDefinition {
-    /// Simple validator
-    /// DataDefinition file
-
-    fn check_types(&self) -> SadBaseResult {
-        if !DECL_DESERIAL_SET.contains(&self.deserializer) {
-            return Err(SadAppError::DataMappingUnknownDeserializer {
-                value: self.deserializer.clone(),
-            });
-        }
-        for hlmap in self.data_mapping.keys() {
-            let mymap = self.data_mapping.get(hlmap).unwrap();
-            if !mymap.contains_key(&*DECL_TYPE_KEY) {
-                return Err(SadAppError::DataMappingMissingTypeError { key: hlmap.clone() });
-            } else if !TYPE_SET.contains(mymap.get(&*DECL_TYPE_KEY).unwrap()) {
-                return Err(SadAppError::DataMappingError {
-                    key: hlmap.clone(),
-                    value: mymap.get(&*DECL_TYPE_KEY).unwrap().clone(),
-                });
-            }
-            if mymap.get(&*DECL_TYPE_KEY).unwrap() == &*DECL_TYPE_ASSOCIATIVE_TYPE {
-                if mymap.len() < 3 {
-                    return Err(SadAppError::DataMappingCountError {
-                        length: mymap.len(),
-                    });
-                }
-                for (key, value) in mymap.iter() {
-                    if !DECL_TYPE_SET.contains(key) || !TYPE_SET.contains(value) {
-                        return Err(SadAppError::DataMappingElementError {
-                            element: hlmap.clone(),
-                            key: key.clone(),
-                            value: value.clone(),
-                        });
-                    }
-                }
-            }
-        }
-        Ok(())
+pub fn is_sadvalue_type(in_str: &str) -> bool {
+    match SadValue::VARIANTS.iter().position(|&r| r == in_str) {
+        Some(_) => true,
+        None => false,
     }
-    fn load(fname: &Path) -> SadTypeResult<DataDefinition> {
-        match load_yaml_file(fname) {
-            Ok(dd) => {
-                let myd: DataDefinition = dd;
-                myd.check_types()?;
-                Ok(myd)
-            }
-            Err(e_) => Err(SadAppError::IoError(e_)),
+}
+pub trait SadElement {
+    fn deser(buf: &mut &[u8]) -> SadValue;
+}
+
+impl SadElement for String {
+    fn deser(buf: &mut &[u8]) -> SadValue {
+        let mlen = <u32>::try_from_slice(&buf[..4]).unwrap() as usize;
+        if mlen > 0 {
+            let fullsize = mlen + 4;
+            let st = String::try_from_slice(&buf[..fullsize]).unwrap();
+            *buf = &buf[fullsize..];
+            SadValue::String(st)
+        } else {
+            *buf = &buf[4..];
+            SadValue::String("".to_string())
         }
     }
 }
 
-#[derive(Debug)]
-pub struct DataMap {
-    data_definition: DataDefinition,
+impl SadElement for bool {
+    fn deser(buf: &mut &[u8]) -> SadValue {
+        let st = bool::try_from_slice(buf).unwrap();
+        *buf = &buf[1..];
+        SadValue::Bool(st)
+    }
 }
 
-impl DataMap {
-    /// Instantiate a DataMap with a
-    /// specific data definition file (yaml)
-    pub fn new(dfile: &Path) -> SadTypeResult<DataMap> {
-        match DataDefinition::load(dfile) {
-            Ok(x_) => Ok(Self {
-                data_definition: x_,
-            }),
-            Err(e_) => Err(e_),
-        }
+impl SadElement for u8 {
+    fn deser(buf: &mut &[u8]) -> SadValue {
+        let st = u8::try_from_slice(buf).unwrap();
+        *buf = &buf[1..];
+        SadValue::U8(st)
     }
-    /// Unpack data from a slice based on the
-    /// data definition
-    pub fn map_accounts_data(
-        &self,
-        rpc_client: &RpcClient,
-        key: &Pubkey,
-        commitment_config: CommitmentConfig,
-        show_raw: bool,
-    ) -> SadBaseResult {
-        match rpc_client.get_account_with_commitment(key, commitment_config) {
-            Ok(a_) => match a_.value {
-                Some(account) => {
-                    if account.executable {
-                        Err(SadAppError::AccountIsExecutable(*key))
-                    } else if account.data.is_empty() {
-                        Err(SadAppError::AccountHasNoData(*key))
-                    } else {
-                        println!("\nAccount #: {}", key);
-                        println!("Remaining Lamports: {}", account.lamports);
-                        println!("Data size (bytes): {}", account.data.len());
-                        if show_raw {
-                            println!("Raw data: {:?}", account.data);
-                        }
-                        // Decompose the data
-                        // let _d = DataInstance::deconstruct(
-                        //     &account.data,
-                        //     &self.data_definition.data_mapping,
-                        // );
-                        Ok(())
-                    }
-                }
-                None => Err(SadAppError::NoAccount(*key)),
-            },
-            Err(e_) => Err(SadAppError::ConnectionError(e_)),
-        }
+}
+
+impl SadElement for u16 {
+    fn deser(buf: &mut &[u8]) -> SadValue {
+        let st = u16::try_from_slice(buf).unwrap();
+        *buf = &buf[2..];
+        SadValue::U16(st)
+    }
+}
+
+impl SadElement for u32 {
+    fn deser(buf: &mut &[u8]) -> SadValue {
+        let st = u32::try_from_slice(buf).unwrap();
+        *buf = &buf[4..];
+        SadValue::U32(st)
+    }
+}
+
+impl SadElement for u64 {
+    fn deser(buf: &mut &[u8]) -> SadValue {
+        let st = u64::try_from_slice(buf).unwrap();
+        *buf = &buf[8..];
+        SadValue::U64(st)
+    }
+}
+
+impl SadElement for u128 {
+    fn deser(buf: &mut &[u8]) -> SadValue {
+        let st = u128::try_from_slice(buf).unwrap();
+        *buf = &buf[16..];
+        SadValue::U128(st)
+    }
+}
+impl SadElement for i8 {
+    fn deser(buf: &mut &[u8]) -> SadValue {
+        let st = i8::try_from_slice(buf).unwrap();
+        *buf = &buf[1..];
+        SadValue::I8(st)
+    }
+}
+
+impl SadElement for i16 {
+    fn deser(buf: &mut &[u8]) -> SadValue {
+        let st = i16::try_from_slice(buf).unwrap();
+        *buf = &buf[2..];
+        SadValue::I16(st)
+    }
+}
+
+impl SadElement for i32 {
+    fn deser(buf: &mut &[u8]) -> SadValue {
+        let st = i32::try_from_slice(buf).unwrap();
+        *buf = &buf[4..];
+        SadValue::I32(st)
+    }
+}
+
+impl SadElement for i64 {
+    fn deser(buf: &mut &[u8]) -> SadValue {
+        let st = i64::try_from_slice(buf).unwrap();
+        *buf = &buf[8..];
+        SadValue::I64(st)
+    }
+}
+
+impl SadElement for i128 {
+    fn deser(buf: &mut &[u8]) -> SadValue {
+        let st = i128::try_from_slice(buf).unwrap();
+        *buf = &buf[16..];
+        SadValue::I128(st)
+    }
+}
+impl SadElement for f32 {
+    fn deser(buf: &mut &[u8]) -> SadValue {
+        let st = f32::try_from_slice(buf).unwrap();
+        *buf = &buf[4..];
+        SadValue::F32(st)
+    }
+}
+
+impl SadElement for f64 {
+    fn deser(buf: &mut &[u8]) -> SadValue {
+        let st = f64::try_from_slice(buf).unwrap();
+        *buf = &buf[8..];
+        SadValue::F64(st)
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::{env::current_dir, path::PathBuf};
-    const MY_DATA: [u8; 1024] = [
-        1, 18, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0, 102, 111, 111, 3, 0, 0, 0, 98, 97, 114, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0,
-    ];
-
-    fn path_from_str(in_str: &'static str) -> PathBuf {
-        current_dir().unwrap().parent().unwrap().join(in_str)
-    }
-    #[test]
-    fn load_datadefinition_pass() {
-        // let y = DataDefinition::load(&path_from_str("rust/yaml_samps/hbclisamp.yml")).unwrap();
-        // assert_eq!(y.version, String::from("0.1.0"));
-        println!("{:x?}", MY_DATA);
-        let xstring: Vec<String> = MY_DATA.iter().map(|b| format!("{:x}", b)).collect();
-
-        println!("#{:?}", xstring.join(""));
-    }
-
-    #[test]
-    fn load_datadefinition_fail() {
-        let y = DataDefinition::load(&path_from_str("rust/yaml_samps/hbclisamp_bad.yml"));
-        assert!(y.is_err());
-        match y {
-            Ok(_) => panic!("Should never have gotten here"),
-            Err(w) => eprint!("{}", w),
-        }
-    }
-}
+mod tests {}

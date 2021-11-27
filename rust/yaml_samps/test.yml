@@ -1,5 +1,12 @@
 ---
-version: 0.1.0
-data_mapping:
-  one_entry: one_value
-  two_entry: two_value
+SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv:
+    - initialized:
+        type: Bool
+    - size_and_map:
+        type: length_prefix
+        size_type: U32
+        contains:
+          - type: HashMap
+            fields:
+              - type: String
+              - type: String

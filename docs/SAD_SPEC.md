@@ -58,7 +58,7 @@ Special types
 Type Semantic | Supported Type Syntax | Notes
 ------------- | ------------ | -------------
 Named fields | NamedField | Needed for CStruct
-Public Key | PublicKey | 32 byte array
+Public Key | PublicKey |
 Fixed Size Arrays (compound type) | array | The child supports the size and types in array
 Length Prefix | length_prefix | Controls the number of bytes to deserialize for the child.
 

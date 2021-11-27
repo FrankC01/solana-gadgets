@@ -1,51 +1,61 @@
 /// solana-gadgets common resuable modules
 /// Includes
 ///
-use serde_yaml::{self, from_reader};
-use std::{fs::File, io, path::Path};
+use std::io::prelude::*;
+use std::{fs::File, io};
+use yaml_rust::yaml::Yaml;
+use yaml_rust::YamlLoader;
 
-/// Loads a yaml_file
-pub fn load_yaml_file<T, P>(yaml_file: P) -> Result<T, io::Error>
-where
-    T: serde::de::DeserializeOwned,
-    P: AsRef<Path>,
-{
-    let file = File::open(yaml_file)?;
-    let result = from_reader(file)
-        .map_err(|err| io::Error::new(io::ErrorKind::Other, format!("{:?}", err)))?;
-    Ok(result)
+pub fn load_yaml_file(yaml_file: &str) -> Result<Vec<Yaml>, io::Error> {
+    let mut file = File::open(yaml_file)?;
+    let mut contents = String::new();
+
+    file.read_to_string(&mut contents)?;
+    let docs = YamlLoader::load_from_str(&contents).unwrap();
+    Ok(docs)
 }
 
 #[cfg(test)]
 mod tests {
 
     use super::*;
-    // use crate::load_yaml_file;
-    use ::{
-        serde::{Deserialize, Serialize},
-        std::{collections::HashMap, path::Path},
-    };
 
-    #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
-    struct Simple {
-        version: String,
-        data_mapping: HashMap<String, String>,
+    fn print_indent(indent: usize) {
+        for _ in 0..indent {
+            print!("    ");
+        }
     }
 
-    impl Simple {
-        fn load(fname: &str) -> Result<Self, io::Error> {
-            load_yaml_file(&Path::new(fname))
+    fn dump_node(doc: &Yaml, indent: usize) {
+        match *doc {
+            Yaml::Array(ref v) => {
+                for x in v {
+                    dump_node(x, indent + 1);
+                }
+            }
+            Yaml::Hash(ref h) => {
+                for (k, v) in h {
+                    print_indent(indent);
+                    println!("{:?}:", k);
+                    dump_node(v, indent + 1);
+                }
+            }
+            _ => {
+                print_indent(indent);
+                println!("{:?}", doc);
+            }
         }
     }
 
     #[test]
     fn load_yaml_file_pass() {
-        let y = Simple::load("../yaml_samps/test.yml").unwrap();
-        assert_eq!(y.version, String::from("0.1.0"));
+        let result = load_yaml_file("../yaml_samps/test.yml");
+        assert!(result.is_ok());
+        dump_node(&result.unwrap()[0], 0);
     }
     #[test]
     fn load_yaml_file_fail() {
-        let y = Simple::load("../yaml_samps/test_fail.yml");
+        let y = load_yaml_file("../yaml_samps/test_noexist.yml");
         assert!(y.is_err());
     }
 }

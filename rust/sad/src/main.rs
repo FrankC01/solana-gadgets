@@ -3,20 +3,19 @@
 use std::str::FromStr;
 
 use {
-    crate::{clparse::parse_command_line, datamap::DataMap},
+    gadgets_common::load_yaml_file,
     solana_clap_utils::{input_validators::normalize_to_url_if_moniker, keypair::DefaultSigner},
     solana_client::rpc_client::RpcClient,
     solana_remote_wallet::remote_wallet::RemoteWalletManager,
     solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signer},
-    std::{path::Path, process::exit, sync::Arc},
+    std::{process::exit, sync::Arc},
 };
 
 /// sad main module
 mod clparse;
-mod datainst;
 mod datamap;
-mod junk;
-mod sad_errors;
+mod desertree;
+mod errors;
 
 struct Config {
     commitment_config: CommitmentConfig,
@@ -26,7 +25,7 @@ struct Config {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let app_matches = parse_command_line();
+    let app_matches = clparse::parse_command_line();
     let (sub_command, sub_matches) = app_matches.subcommand();
     let matches = sub_matches.unwrap();
     let mut wallet_manager: Option<Arc<RemoteWalletManager>> = None;
@@ -70,18 +69,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rpc_client = RpcClient::new(config.json_rpc_url.clone());
     match (sub_command, sub_matches) {
         ("deser", Some(_arg_matchs)) => {
-            let dfile = Path::new(matches.value_of("data-map").unwrap());
-            let dmap = DataMap::new(dfile)?;
+            let dfile = load_yaml_file(matches.value_of("data-map").unwrap()).unwrap();
+            // let dmap = DataMap::new(dfile)?;
             let account: Pubkey = match matches.value_of("account") {
                 Some(acc) => Pubkey::from_str(acc).unwrap(),
                 None => config.default_signer.pubkey(),
             };
-            match dmap.map_accounts_data(&rpc_client, &account, config.commitment_config, true) {
-                Ok(_) => println!("Successful deserialization of account"),
-                Err(e) => {
-                    eprint!("{}", e)
-                }
-            }
         }
         _ => unreachable!(),
     }
