@@ -20,6 +20,8 @@ trait NodeWithChildren: Node {
 }
 
 const SAD_YAML_TYPE: &str = "type";
+const SAD_YAML_NAME: &str = "name";
+const SAD_YAML_DESCRIPTOR: &str = "descriptor";
 const SAD_YAML_SIZE_TYPE: &str = "size_type";
 const SAD_YAML_CONTAINS: &str = "contains";
 const SAD_YAML_FIELDS: &str = "fields";
@@ -31,7 +33,6 @@ pub struct SadLeaf {
 
 impl SadLeaf {
     fn from_yaml(in_yaml: &Yaml) -> Result<Box<dyn Node>, SadTreeError> {
-        let hmap = in_yaml.as_hash().unwrap();
         let in_str = in_yaml[SAD_YAML_TYPE].as_str().unwrap();
         if is_sadvalue_type(in_str) {
             Ok(Box::new(SadLeaf {
@@ -56,6 +57,51 @@ impl Node for SadLeaf {
         todo!()
     }
 }
+#[derive(Debug)]
+pub struct SadNamedField {
+    sad_field_name: String,
+    sad_value_type: String,
+    children: Vec<Box<dyn Node>>,
+}
+
+impl SadNamedField {
+    fn from_yaml(in_yaml: &Yaml) -> Result<Box<dyn Node>, SadTreeError> {
+        let desc = &in_yaml[SAD_YAML_DESCRIPTOR];
+        let in_name = desc[SAD_YAML_NAME].as_str().unwrap();
+        let mut array = Vec::<Box<dyn Node>>::new();
+        array.push(parse(desc).unwrap());
+        println!("NF Child {:?}", array);
+        Ok(Box::new(SadNamedField {
+            sad_field_name: String::from(in_name),
+            sad_value_type: String::from(SAD_YAML_DESCRIPTOR),
+            children: array,
+        }))
+    }
+
+    fn name(&self) -> &String {
+        &self.sad_field_name
+    }
+}
+
+impl Node for SadNamedField {
+    fn decl_type(&self) -> &String {
+        &self.sad_value_type
+    }
+
+    fn deser_line(&self, data: &mut &[u8], collection: &mut Vec<SadValue>) {
+        todo!()
+    }
+
+    fn deser(&self, data: &mut &[u8], collection: &mut Vec<SadValue>) {
+        todo!()
+    }
+}
+impl NodeWithChildren for SadNamedField {
+    fn children(&self) -> &Vec<Box<dyn Node>> {
+        &self.children
+    }
+}
+
 #[derive(Debug)]
 pub struct SadLengthPrefix {
     sad_value_type: String,
@@ -141,13 +187,6 @@ impl SadHashMap {
                     children: array,
                 }))
             }
-            Yaml::Hash(map) => {
-                array.push(parse(fields).unwrap());
-                Ok(Box::new(SadHashMap {
-                    sad_value_type: String::from(in_str),
-                    children: array,
-                }))
-            }
             _ => Err(SadTreeError::ExpectedHashMapFields),
         }
     }
@@ -173,6 +212,156 @@ impl NodeWithChildren for SadHashMap {
 }
 
 #[derive(Debug)]
+pub struct SadStructure {
+    sad_value_type: String,
+    children: Vec<Box<dyn Node>>,
+}
+
+impl SadStructure {
+    fn from_yaml(in_yaml: &Yaml) -> Result<Box<dyn Node>, SadTreeError> {
+        let in_str = in_yaml[SAD_YAML_TYPE].as_str().unwrap();
+        if !is_sadvalue_type(in_str) {
+            return Err(SadTreeError::UnknownType(String::from(in_str)));
+        }
+
+        let mut array = Vec::<Box<dyn Node>>::new();
+        let fields = &in_yaml[SAD_YAML_FIELDS];
+
+        match fields {
+            Yaml::Array(lst) => {
+                for hl in lst {
+                    array.push(parse(hl).unwrap())
+                }
+                Ok(Box::new(SadStructure {
+                    sad_value_type: String::from(in_str),
+                    children: array,
+                }))
+            }
+            _ => Err(SadTreeError::ExpectedCStructFields),
+        }
+    }
+}
+impl Node for SadStructure {
+    fn decl_type(&self) -> &String {
+        &self.sad_value_type
+    }
+
+    fn deser_line(&self, data: &mut &[u8], collection: &mut Vec<SadValue>) {
+        todo!()
+    }
+
+    fn deser(&self, data: &mut &[u8], collection: &mut Vec<SadValue>) {
+        todo!()
+    }
+}
+
+impl NodeWithChildren for SadStructure {
+    fn children(&self) -> &Vec<Box<dyn Node>> {
+        &self.children
+    }
+}
+
+#[derive(Debug)]
+pub struct SadVector {
+    sad_value_type: String,
+    children: Vec<Box<dyn Node>>,
+}
+
+impl SadVector {
+    fn from_yaml(in_yaml: &Yaml) -> Result<Box<dyn Node>, SadTreeError> {
+        let hmap = in_yaml.as_hash().unwrap();
+        let in_str = in_yaml[SAD_YAML_TYPE].as_str().unwrap();
+        if !is_sadvalue_type(in_str) {
+            return Err(SadTreeError::UnknownType(String::from(in_str)));
+        }
+
+        let mut array = Vec::<Box<dyn Node>>::new();
+        let contains = &in_yaml[SAD_YAML_CONTAINS];
+        match contains {
+            Yaml::Array(lst) => {
+                for hl in lst {
+                    array.push(parse(hl).unwrap())
+                }
+                Ok(Box::new(SadVector {
+                    sad_value_type: String::from(in_str),
+                    children: array,
+                }))
+            }
+            _ => Err(SadTreeError::ExpectedVecContains),
+        }
+    }
+}
+impl Node for SadVector {
+    fn decl_type(&self) -> &String {
+        &self.sad_value_type
+    }
+
+    fn deser_line(&self, data: &mut &[u8], collection: &mut Vec<SadValue>) {
+        todo!()
+    }
+
+    fn deser(&self, data: &mut &[u8], collection: &mut Vec<SadValue>) {
+        todo!()
+    }
+}
+
+impl NodeWithChildren for SadVector {
+    fn children(&self) -> &Vec<Box<dyn Node>> {
+        &self.children
+    }
+}
+
+#[derive(Debug)]
+pub struct SadTuple {
+    sad_value_type: String,
+    children: Vec<Box<dyn Node>>,
+}
+
+impl SadTuple {
+    fn from_yaml(in_yaml: &Yaml) -> Result<Box<dyn Node>, SadTreeError> {
+        let hmap = in_yaml.as_hash().unwrap();
+        let in_str = in_yaml[SAD_YAML_TYPE].as_str().unwrap();
+        if !is_sadvalue_type(in_str) {
+            return Err(SadTreeError::UnknownType(String::from(in_str)));
+        }
+
+        let mut array = Vec::<Box<dyn Node>>::new();
+        let fields = &in_yaml[SAD_YAML_FIELDS];
+        match fields {
+            Yaml::Array(lst) => {
+                for hl in lst {
+                    array.push(parse(hl).unwrap())
+                }
+                Ok(Box::new(SadTuple {
+                    sad_value_type: String::from(in_str),
+                    children: array,
+                }))
+            }
+            _ => Err(SadTreeError::ExpectedTupleFields),
+        }
+    }
+}
+impl Node for SadTuple {
+    fn decl_type(&self) -> &String {
+        &self.sad_value_type
+    }
+
+    fn deser_line(&self, data: &mut &[u8], collection: &mut Vec<SadValue>) {
+        todo!()
+    }
+
+    fn deser(&self, data: &mut &[u8], collection: &mut Vec<SadValue>) {
+        todo!()
+    }
+}
+
+impl NodeWithChildren for SadTuple {
+    fn children(&self) -> &Vec<Box<dyn Node>> {
+        &self.children
+    }
+}
+
+#[derive(Debug)]
 pub struct SadTree {
     yaml_decl_type: String,
     name: String,
@@ -181,13 +370,12 @@ pub struct SadTree {
 
 impl SadTree {
     pub fn new(in_yaml: &Yaml) -> Result<Self, SadTreeError> {
+        let mut array = Vec::<Box<dyn Node>>::new();
         match &*in_yaml {
             Yaml::Hash(ref hmap) => {
                 let (key, value) = hmap.front().unwrap();
                 match value {
                     Yaml::Array(hlobjects) => {
-                        let mut array = Vec::<Box<dyn Node>>::new();
-
                         for hl in hlobjects {
                             let (_, h1_value) = hl.as_hash().unwrap().front().unwrap();
                             array.push(parse(h1_value).unwrap());
@@ -245,6 +433,9 @@ impl<'a> Deseriaizer<'a> {
         let hm = HashMap::<String, Box<dyn Any>>::new();
         hm
     }
+    fn tree(&self) -> &SadTree {
+        &self.sad_tree
+    }
 }
 lazy_static! {
     static ref JUMP_TABLE: HashMap<String, fn(&Yaml) -> Result<Box<dyn Node>, SadTreeError>> = {
@@ -252,6 +443,10 @@ lazy_static! {
             HashMap::<String, fn(&Yaml) -> Result<Box<dyn Node>, SadTreeError>>::new();
         jump_table.insert("length_prefix".to_string(), SadLengthPrefix::from_yaml);
         jump_table.insert("HashMap".to_string(), SadHashMap::from_yaml);
+        jump_table.insert("Vec".to_string(), SadVector::from_yaml);
+        jump_table.insert("Tuple".to_string(), SadTuple::from_yaml);
+        jump_table.insert("CStruct".to_string(), SadStructure::from_yaml);
+        jump_table.insert("NamedField".to_string(), SadNamedField::from_yaml);
         jump_table.insert("other".to_string(), SadLeaf::from_yaml);
         jump_table
     };
@@ -261,7 +456,6 @@ fn parse(in_yaml: &Yaml) -> Result<Box<dyn Node>, SadTreeError> {
     let default = JUMP_TABLE.get("other").unwrap();
     // Expects a Hash construct and first entry
     let type_in = in_yaml.as_hash().unwrap().front().unwrap().1;
-    println!("type_in = {:?}", type_in);
     if let Some(s) = JUMP_TABLE.get(type_in.as_str().unwrap()) {
         s(in_yaml)
     } else {
@@ -300,6 +494,31 @@ mod tests {
             let sl = SadLeaf::from_yaml(doc);
             assert!(sl.is_ok());
             println!("{:?}", sl);
+        }
+    }
+
+    #[test]
+    fn test_scalars_pass() {
+        let mut pos = 0;
+        let pos_end = 14;
+        for v in SadValue::VARIANTS.iter() {
+            if pos == pos_end {
+                break;
+            }
+            pos += 1;
+            let vs = *v;
+            let d = format!("{}: {}", "type", vs);
+            let docs = YamlLoader::load_from_str(&d).unwrap();
+            let result = parse(&docs[0]);
+            assert!(result.is_ok());
+        }
+    }
+    #[test]
+    fn test_runner_pass() {
+        // let result = load_yaml_file("../yaml_samps/test.yml").unwrap();
+        let result = load_yaml_file("../yaml_samps/runner.yml").unwrap();
+        for body in result {
+            println!("{:?}", Deseriaizer::new(&body).tree());
         }
     }
 

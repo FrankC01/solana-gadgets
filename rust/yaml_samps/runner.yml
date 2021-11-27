@@ -1,0 +1,59 @@
+---
+scalar:
+  - u32:
+      type: U32
+...
+---
+scalar:
+  - u8:
+      type: U8
+...
+---
+hashmap:
+  - amap:
+      type: HashMap
+      fields:
+        - type: String
+        - type: U128
+...
+---
+lengthencoded:
+  - size_and_map:
+      type: length_prefix
+      size_type: U32
+      contains:
+        - type: HashMap
+          fields:
+            - type: String
+            - type: String
+...
+---
+vector_a:
+  - avec:
+      type: Vec
+      contains:
+        - type: String
+        - type: U128
+...
+---
+tuple_a:
+  - atup:
+      type: Tuple
+      fields:
+        - type: String
+        - type: U128
+...
+---
+structure:
+  - acstruct:
+      type: CStruct
+      fields:
+        - type: NamedField
+          descriptor:
+            name: Name
+            type: String
+        - type: NamedField
+          descriptor:
+            name: Age
+            type: U32
+...

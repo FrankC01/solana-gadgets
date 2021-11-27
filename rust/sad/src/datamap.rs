@@ -18,7 +18,7 @@ pub enum SadValue {
     I128(i128),
     F32(f32),
     F64(f64),
-    List(Vec<SadValue>),
+    Vec(Vec<SadValue>),
     Tuple(Vec<SadValue>),
     HashMap(HashMap<SadValue, SadValue>),
     CStruct(HashMap<SadValue, SadValue>),

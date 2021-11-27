@@ -12,4 +12,10 @@ pub enum SadTreeError {
     ExpectedHashMapOrArray,
     #[error("Expected HashMap fields")]
     ExpectedHashMapFields,
+    #[error("Expected Vec contains")]
+    ExpectedVecContains,
+    #[error("Expected Tuple fields")]
+    ExpectedTupleFields,
+    #[error("Expected CStruct fields")]
+    ExpectedCStructFields,
 }
