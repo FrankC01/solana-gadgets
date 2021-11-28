@@ -1,4 +1,5 @@
 use borsh::BorshDeserialize;
+use lazy_static::*;
 use std::{collections::HashMap, str::FromStr};
 use strum::{EnumIter, EnumString, EnumVariantNames, VariantNames};
 
@@ -20,8 +21,8 @@ pub enum SadValue {
     F64(f64),
     Vec(Vec<SadValue>),
     Tuple(Vec<SadValue>),
-    HashMap(HashMap<SadValue, SadValue>),
-    CStruct(HashMap<SadValue, SadValue>),
+    HashMap(Vec<Vec<SadValue>>),
+    CStruct(Vec<SadValue>),
 }
 
 pub fn sad_value_from_sting(in_str: &str) -> SadValue {
@@ -55,7 +56,7 @@ impl SadElement for String {
 
 impl SadElement for bool {
     fn deser(buf: &mut &[u8]) -> SadValue {
-        let st = bool::try_from_slice(buf).unwrap();
+        let st = bool::try_from_slice(&buf[..1]).unwrap();
         *buf = &buf[1..];
         SadValue::Bool(st)
     }
@@ -63,7 +64,7 @@ impl SadElement for bool {
 
 impl SadElement for u8 {
     fn deser(buf: &mut &[u8]) -> SadValue {
-        let st = u8::try_from_slice(buf).unwrap();
+        let st = u8::try_from_slice(&buf[..1]).unwrap();
         *buf = &buf[1..];
         SadValue::U8(st)
     }
@@ -71,7 +72,7 @@ impl SadElement for u8 {
 
 impl SadElement for u16 {
     fn deser(buf: &mut &[u8]) -> SadValue {
-        let st = u16::try_from_slice(buf).unwrap();
+        let st = u16::try_from_slice(&buf[..2]).unwrap();
         *buf = &buf[2..];
         SadValue::U16(st)
     }
@@ -79,7 +80,7 @@ impl SadElement for u16 {
 
 impl SadElement for u32 {
     fn deser(buf: &mut &[u8]) -> SadValue {
-        let st = u32::try_from_slice(buf).unwrap();
+        let st = u32::try_from_slice(&buf[..4]).unwrap();
         *buf = &buf[4..];
         SadValue::U32(st)
     }
@@ -87,7 +88,7 @@ impl SadElement for u32 {
 
 impl SadElement for u64 {
     fn deser(buf: &mut &[u8]) -> SadValue {
-        let st = u64::try_from_slice(buf).unwrap();
+        let st = u64::try_from_slice(&buf[..8]).unwrap();
         *buf = &buf[8..];
         SadValue::U64(st)
     }
@@ -95,14 +96,14 @@ impl SadElement for u64 {
 
 impl SadElement for u128 {
     fn deser(buf: &mut &[u8]) -> SadValue {
-        let st = u128::try_from_slice(buf).unwrap();
+        let st = u128::try_from_slice(&buf[..16]).unwrap();
         *buf = &buf[16..];
         SadValue::U128(st)
     }
 }
 impl SadElement for i8 {
     fn deser(buf: &mut &[u8]) -> SadValue {
-        let st = i8::try_from_slice(buf).unwrap();
+        let st = i8::try_from_slice(&buf[..1]).unwrap();
         *buf = &buf[1..];
         SadValue::I8(st)
     }
@@ -110,7 +111,7 @@ impl SadElement for i8 {
 
 impl SadElement for i16 {
     fn deser(buf: &mut &[u8]) -> SadValue {
-        let st = i16::try_from_slice(buf).unwrap();
+        let st = i16::try_from_slice(&buf[..2]).unwrap();
         *buf = &buf[2..];
         SadValue::I16(st)
     }
@@ -118,7 +119,7 @@ impl SadElement for i16 {
 
 impl SadElement for i32 {
     fn deser(buf: &mut &[u8]) -> SadValue {
-        let st = i32::try_from_slice(buf).unwrap();
+        let st = i32::try_from_slice(&buf[..4]).unwrap();
         *buf = &buf[4..];
         SadValue::I32(st)
     }
@@ -126,7 +127,7 @@ impl SadElement for i32 {
 
 impl SadElement for i64 {
     fn deser(buf: &mut &[u8]) -> SadValue {
-        let st = i64::try_from_slice(buf).unwrap();
+        let st = i64::try_from_slice(&buf[..8]).unwrap();
         *buf = &buf[8..];
         SadValue::I64(st)
     }
@@ -134,7 +135,7 @@ impl SadElement for i64 {
 
 impl SadElement for i128 {
     fn deser(buf: &mut &[u8]) -> SadValue {
-        let st = i128::try_from_slice(buf).unwrap();
+        let st = i128::try_from_slice(&buf[..16]).unwrap();
         *buf = &buf[16..];
         SadValue::I128(st)
     }
@@ -155,5 +156,39 @@ impl SadElement for f64 {
     }
 }
 
+lazy_static! {
+    static ref DESER: HashMap<String, fn(&mut &[u8]) -> SadValue> = {
+        let mut deser_table = HashMap::<String, fn(&mut &[u8]) -> SadValue>::new();
+        deser_table.insert("String".to_string(), <String as SadElement>::deser);
+        deser_table.insert("Bool".to_string(), <bool as SadElement>::deser);
+        deser_table.insert("U8".to_string(), <u8 as SadElement>::deser);
+        deser_table.insert("U16".to_string(), <u16 as SadElement>::deser);
+        deser_table.insert("U32".to_string(), <u32 as SadElement>::deser);
+        deser_table.insert("U64".to_string(), <u64 as SadElement>::deser);
+        deser_table.insert("U128".to_string(), <u128 as SadElement>::deser);
+        deser_table.insert("I8".to_string(), <i8 as SadElement>::deser);
+        deser_table.insert("I16".to_string(), <i16 as SadElement>::deser);
+        deser_table.insert("I32".to_string(), <i32 as SadElement>::deser);
+        deser_table.insert("I64".to_string(), <i64 as SadElement>::deser);
+        deser_table.insert("I128".to_string(), <i128 as SadElement>::deser);
+        deser_table.insert("F32".to_string(), <f32 as SadElement>::deser);
+        deser_table.insert("F64".to_string(), <f64 as SadElement>::deser);
+        deser_table
+    };
+}
+
+pub fn deser_value_for(key: &String, stream: &mut &[u8]) -> SadValue {
+    let dfn = DESER.get(key).unwrap();
+    dfn(stream)
+}
+
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::*;
+    #[test]
+    fn test_types() {
+        let vbool = vec![1u8];
+        let result = DESER.get("Bool").unwrap();
+        println!("{:?} {:?}", vbool, result(&mut vbool.as_slice()));
+    }
+}

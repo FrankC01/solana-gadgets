@@ -1,8 +1,9 @@
+use borsh::BorshDeserialize;
 use std::{any::Any, collections::HashMap};
 
 /// solana-gadgets sad deserialization tree
 use crate::{
-    datamap::{is_sadvalue_type, SadValue},
+    datamap::{deser_value_for, is_sadvalue_type, SadValue},
     errors::SadTreeError,
 };
 use lazy_static::*;
@@ -54,7 +55,7 @@ impl Node for SadLeaf {
     }
 
     fn deser(&self, data: &mut &[u8], collection: &mut Vec<SadValue>) {
-        todo!()
+        collection.push(deser_value_for(self.decl_type(), data));
     }
 }
 #[derive(Debug)]
@@ -70,7 +71,6 @@ impl SadNamedField {
         let in_name = desc[SAD_YAML_NAME].as_str().unwrap();
         let mut array = Vec::<Box<dyn Node>>::new();
         array.push(parse(desc).unwrap());
-        println!("NF Child {:?}", array);
         Ok(Box::new(SadNamedField {
             sad_field_name: String::from(in_name),
             sad_value_type: String::from(SAD_YAML_DESCRIPTOR),
@@ -93,7 +93,12 @@ impl Node for SadNamedField {
     }
 
     fn deser(&self, data: &mut &[u8], collection: &mut Vec<SadValue>) {
-        todo!()
+        let mut coll = Vec::<SadValue>::new();
+        coll.push(SadValue::String(self.name().clone()));
+        for c in &self.children {
+            c.deser(data, &mut coll)
+        }
+        collection.push(SadValue::CStruct(coll));
     }
 }
 impl NodeWithChildren for SadNamedField {
@@ -110,7 +115,6 @@ pub struct SadLengthPrefix {
 }
 impl SadLengthPrefix {
     fn from_yaml(in_yaml: &Yaml) -> Result<Box<dyn Node>, SadTreeError> {
-        let hmap = in_yaml.as_hash().unwrap();
         let in_str = in_yaml[SAD_YAML_SIZE_TYPE].as_str().unwrap();
         if !is_sadvalue_type(in_str) {
             return Err(SadTreeError::UnknownType(String::from(in_str)));
@@ -120,11 +124,7 @@ impl SadLengthPrefix {
         let contains = &in_yaml[SAD_YAML_CONTAINS];
         match contains {
             Yaml::Array(lst) => {
-                // println!("slp = {:?}", lst);
                 array.push(parse(&lst[0]).unwrap());
-                // for hl in lst {
-                //     array.push(parse(hl).unwrap())
-                // }
                 Ok(Box::new(SadLengthPrefix {
                     sad_value_type: String::from(in_type_str),
                     sad_length_type: String::from(in_str),
@@ -153,7 +153,12 @@ impl Node for SadLengthPrefix {
     }
 
     fn deser(&self, data: &mut &[u8], collection: &mut Vec<SadValue>) {
-        todo!()
+        let overall = u32::try_from_slice(&data[0..4]).unwrap();
+        *data = &data[4..];
+        collection.push(SadValue::U32(overall));
+        for c in &self.children {
+            c.deser(data, collection)
+        }
     }
 }
 impl NodeWithChildren for SadLengthPrefix {
@@ -169,12 +174,10 @@ pub struct SadHashMap {
 
 impl SadHashMap {
     fn from_yaml(in_yaml: &Yaml) -> Result<Box<dyn Node>, SadTreeError> {
-        let hmap = in_yaml.as_hash().unwrap();
         let in_str = in_yaml[SAD_YAML_TYPE].as_str().unwrap();
         if !is_sadvalue_type(in_str) {
             return Err(SadTreeError::UnknownType(String::from(in_str)));
         }
-
         let mut array = Vec::<Box<dyn Node>>::new();
         let fields = &in_yaml[SAD_YAML_FIELDS];
         match fields {
@@ -201,7 +204,17 @@ impl Node for SadHashMap {
     }
 
     fn deser(&self, data: &mut &[u8], collection: &mut Vec<SadValue>) {
-        todo!()
+        let mut coll = Vec::<Vec<SadValue>>::new();
+        let count = u32::try_from_slice(&data[0..4]).unwrap();
+        *data = &data[4..];
+        for _ in 0..count {
+            let mut spare = Vec::<SadValue>::new();
+            for c in &self.children {
+                c.deser(data, &mut spare);
+            }
+            coll.push(spare);
+        }
+        collection.push(SadValue::HashMap(coll))
     }
 }
 
@@ -251,7 +264,9 @@ impl Node for SadStructure {
     }
 
     fn deser(&self, data: &mut &[u8], collection: &mut Vec<SadValue>) {
-        todo!()
+        for c in &self.children {
+            c.deser(data, collection)
+        }
     }
 }
 
@@ -269,7 +284,6 @@ pub struct SadVector {
 
 impl SadVector {
     fn from_yaml(in_yaml: &Yaml) -> Result<Box<dyn Node>, SadTreeError> {
-        let hmap = in_yaml.as_hash().unwrap();
         let in_str = in_yaml[SAD_YAML_TYPE].as_str().unwrap();
         if !is_sadvalue_type(in_str) {
             return Err(SadTreeError::UnknownType(String::from(in_str)));
@@ -301,7 +315,16 @@ impl Node for SadVector {
     }
 
     fn deser(&self, data: &mut &[u8], collection: &mut Vec<SadValue>) {
-        todo!()
+        // let mut coll = Vec::<Vec<SadValue>>::new();
+        let count = u32::try_from_slice(&data[0..4]).unwrap();
+        *data = &data[4..];
+        let mut spare = Vec::<SadValue>::new();
+        for _ in 0..count {
+            for c in &self.children {
+                c.deser(data, &mut spare);
+            }
+        }
+        collection.push(SadValue::Vec(spare));
     }
 }
 
@@ -319,7 +342,6 @@ pub struct SadTuple {
 
 impl SadTuple {
     fn from_yaml(in_yaml: &Yaml) -> Result<Box<dyn Node>, SadTreeError> {
-        let hmap = in_yaml.as_hash().unwrap();
         let in_str = in_yaml[SAD_YAML_TYPE].as_str().unwrap();
         if !is_sadvalue_type(in_str) {
             return Err(SadTreeError::UnknownType(String::from(in_str)));
@@ -351,7 +373,9 @@ impl Node for SadTuple {
     }
 
     fn deser(&self, data: &mut &[u8], collection: &mut Vec<SadValue>) {
-        todo!()
+        for c in &self.children {
+            c.deser(data, collection)
+        }
     }
 }
 
@@ -429,8 +453,9 @@ impl<'a> Deseriaizer<'a> {
             sad_tree: SadTree::new(in_yaml).unwrap(),
         }
     }
-    fn deser(&self, data: &mut &[u8]) -> HashMap<String, Box<dyn Any>> {
-        let hm = HashMap::<String, Box<dyn Any>>::new();
+    fn deser(&self, data: &mut &[u8]) -> Vec<SadValue> {
+        let mut hm = Vec::<SadValue>::new();
+        self.sad_tree.deser(data, &mut hm);
         hm
     }
     fn tree(&self) -> &SadTree {
@@ -465,11 +490,29 @@ fn parse(in_yaml: &Yaml) -> Result<Box<dyn Node>, SadTreeError> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use base64::decode;
+    use borsh::BorshSerialize;
     use gadgets_common::load_yaml_file;
     use strum::VariantNames;
     use yaml_rust::YamlLoader;
 
-    use super::*;
+    const INDEX_HASHMAP_STRING_U128: usize = 2;
+    const INDEX_LENGTHPREFIX_HASHMAP: usize = 3;
+    const INDEX_VECTOR_STRING: usize = 4;
+    const INDEX_VECTOR_U32: usize = 5;
+    const INDEX_TUPLE_STRING_U128: usize = 6;
+    const INDEX_STRUCT_STRING_U32: usize = 7;
+
+    #[derive(BorshSerialize)]
+    struct OfTuple(String, u128);
+
+    #[derive(BorshSerialize)]
+    struct OfStruct {
+        name: String,
+        age: u32,
+    }
+
     fn body_parse(in_yaml: &Yaml) -> Result<(), SadTreeError> {
         match &*in_yaml {
             Yaml::Real(_) => Ok(()),
@@ -523,8 +566,89 @@ mod tests {
     }
 
     #[test]
+    fn test_hashmap_pass() {
+        let mut mhmap = HashMap::<&str, u128>::new();
+        mhmap.insert("foo", 1u128);
+        mhmap.insert("bar", 2u128);
+        mhmap.insert("baz", 3u128);
+        let result = load_yaml_file("../yaml_samps/runner.yml").unwrap();
+        let desc = Deseriaizer::new(&result[INDEX_HASHMAP_STRING_U128]);
+        let data = mhmap.try_to_vec().unwrap();
+        let deserialize_vector = desc.deser(&mut data.as_slice());
+        println!("{:?}", deserialize_vector);
+    }
+    #[test]
+    fn test_length_prefix_hashmap_pass() {
+        let mut mhmap = HashMap::<&str, &str>::new();
+        mhmap.insert("foo", "1u128");
+        mhmap.insert("bar", "2u128");
+        mhmap.insert("baz", "3u128");
+        let result = load_yaml_file("../yaml_samps/runner.yml").unwrap();
+        let desc = Deseriaizer::new(&result[INDEX_LENGTHPREFIX_HASHMAP]);
+        let data = mhmap.try_to_vec().unwrap();
+        let lpref = data.len() as u32;
+        let mut head = lpref.try_to_vec().unwrap();
+        head.extend(data);
+        let deserialize_vector = desc.deser(&mut head.as_slice());
+        println!("{:?}", deserialize_vector);
+    }
+
+    #[test]
+    fn test_vector_string_pass() {
+        let mut mhmap = Vec::<String>::new();
+        mhmap.push(String::from("foo"));
+        mhmap.push(String::from("bar"));
+        let result = load_yaml_file("../yaml_samps/runner.yml").unwrap();
+        let desc = Deseriaizer::new(&result[INDEX_VECTOR_STRING]);
+        let data = mhmap.try_to_vec().unwrap();
+        let deserialize_vector = desc.deser(&mut data.as_slice());
+        println!("{:?}", deserialize_vector);
+    }
+
+    #[test]
+    fn test_vector_u32_pass() {
+        let mut mhmap = Vec::<u32>::new();
+        mhmap.push(1u32);
+        mhmap.push(2u32);
+        let result = load_yaml_file("../yaml_samps/runner.yml").unwrap();
+        let desc = Deseriaizer::new(&result[INDEX_VECTOR_U32]);
+        let data = mhmap.try_to_vec().unwrap();
+        let deserialize_vector = desc.deser(&mut data.as_slice());
+        println!("{:?}", deserialize_vector);
+    }
+
+    #[test]
+    fn test_tuple_pass() {
+        let mhmap = OfTuple("Foo".to_string(), 19u128);
+        let result = load_yaml_file("../yaml_samps/runner.yml").unwrap();
+        let desc = Deseriaizer::new(&result[INDEX_TUPLE_STRING_U128]);
+        let data = mhmap.try_to_vec().unwrap();
+        println!("{:?}", data);
+        let deserialize_vector = desc.deser(&mut data.as_slice());
+        println!("{:?}", deserialize_vector);
+    }
+
+    #[test]
+    fn test_struct_pass() {
+        let mhmap = OfStruct {
+            name: "Frank".to_string(),
+            age: 64,
+        };
+        let result = load_yaml_file("../yaml_samps/runner.yml").unwrap();
+        let desc = Deseriaizer::new(&result[INDEX_STRUCT_STRING_U32]);
+        let data = mhmap.try_to_vec().unwrap();
+        println!("{:?}", data);
+        let deserialize_vector = desc.deser(&mut data.as_slice());
+        println!("{:?}", deserialize_vector);
+    }
+
+    #[test]
     fn test_deserialization_pass() {
+        let pacc = "ASUAAAABAAAABAAAAEFLZXkVAAAATWludGVkIGtleSB2YWx1ZSBwYWlyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
+        let pacv = decode(pacc).unwrap();
         let result = load_yaml_file("../yaml_samps/test.yml").unwrap();
         let desc = Deseriaizer::new(&result[0]);
+        let deserialize_vector = desc.deser(&mut pacv.as_slice());
+        println!("{:?}", deserialize_vector);
     }
 }

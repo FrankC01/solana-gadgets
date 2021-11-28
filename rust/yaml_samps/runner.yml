@@ -33,7 +33,13 @@ vector_a:
       type: Vec
       contains:
         - type: String
-        - type: U128
+...
+---
+vector_b:
+  - avec:
+      type: Vec
+      contains:
+        - type: U32
 ...
 ---
 tuple_a:
@@ -50,10 +56,10 @@ structure:
       fields:
         - type: NamedField
           descriptor:
-            name: Name
+            name: name
             type: String
         - type: NamedField
           descriptor:
-            name: Age
+            name: age
             type: U32
 ...
