@@ -1,13 +1,12 @@
 //! @brief Main entry poiint for CLI
 
-use std::str::FromStr;
-
 use {
     gadgets_common::load_yaml_file,
     solana_clap_utils::{input_validators::normalize_to_url_if_moniker, keypair::DefaultSigner},
     solana_client::rpc_client::RpcClient,
     solana_remote_wallet::remote_wallet::RemoteWalletManager,
     solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signer},
+    std::str::FromStr,
     std::{process::exit, sync::Arc},
 };
 

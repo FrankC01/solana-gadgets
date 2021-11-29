@@ -1,9 +1,13 @@
-use borsh::BorshDeserialize;
-use lazy_static::*;
-use std::{collections::HashMap, str::FromStr};
-use strum::{EnumIter, EnumString, EnumVariantNames, VariantNames};
+//! @brief Deserialization Support
 
-#[derive(Debug, EnumString, EnumIter, EnumVariantNames)]
+use {
+    borsh::BorshDeserialize,
+    lazy_static::*,
+    std::collections::HashMap,
+    strum::{EnumIter, EnumVariantNames, VariantNames},
+};
+
+#[derive(Debug, EnumIter, EnumVariantNames)]
 pub enum SadValue {
     String(String),
     Bool(bool),
@@ -23,10 +27,7 @@ pub enum SadValue {
     Tuple(Vec<SadValue>),
     HashMap(Vec<Vec<SadValue>>),
     CStruct(Vec<SadValue>),
-}
-
-pub fn sad_value_from_sting(in_str: &str) -> SadValue {
-    SadValue::from_str(in_str).unwrap()
+    NamedField(Vec<SadValue>),
 }
 
 pub fn is_sadvalue_type(in_str: &str) -> bool {

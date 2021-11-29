@@ -1,13 +1,15 @@
-use borsh::BorshDeserialize;
-use std::{any::Any, collections::HashMap};
+//! @brief Heart of deserialization
 
-/// solana-gadgets sad deserialization tree
-use crate::{
-    datamap::{deser_value_for, is_sadvalue_type, SadValue},
-    errors::SadTreeError,
+use {
+    crate::{
+        datamap::{deser_value_for, is_sadvalue_type, SadValue},
+        errors::SadTreeError,
+    },
+    borsh::BorshDeserialize,
+    lazy_static::*,
+    std::collections::HashMap,
+    yaml_rust::yaml::Yaml,
 };
-use lazy_static::*;
-use yaml_rust::yaml::Yaml;
 
 trait Node: std::fmt::Debug {
     /// Clone of the inbound yaml sad 'type'
@@ -98,7 +100,7 @@ impl Node for SadNamedField {
         for c in &self.children {
             c.deser(data, &mut coll)
         }
-        collection.push(SadValue::CStruct(coll));
+        collection.push(SadValue::NamedField(coll));
     }
 }
 impl NodeWithChildren for SadNamedField {
@@ -264,9 +266,11 @@ impl Node for SadStructure {
     }
 
     fn deser(&self, data: &mut &[u8], collection: &mut Vec<SadValue>) {
+        let mut coll = Vec::<SadValue>::new();
         for c in &self.children {
-            c.deser(data, collection)
+            c.deser(data, &mut coll)
         }
+        collection.push(SadValue::CStruct(coll))
     }
 }
 

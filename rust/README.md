@@ -1,7 +1,6 @@
 ## solana-gadgets-rust source of various rust gadgets
 
-A repository of miscellaneous command line tools for solana
+A repository of various command line tools for solana
 
-This is brand spanking new that has yet to achieve structure let alone anything useful
-
-Not usable ... yet!
+## Content
+* `sad` - YAML driven Deserialization of solana program owned account data [here](sad/README.md)
