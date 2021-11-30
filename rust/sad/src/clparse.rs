@@ -55,27 +55,39 @@ pub fn parse_command_line() -> ArgMatches<'static> {
                 .validator(is_url_or_moniker)
                 .help("JSON RPC URL for the cluster [default: value from configuration file]"),
         )
+        .arg(
+            Arg::with_name("decl")
+                .display_order(2)
+                .long("declfile")
+                .short("d")
+                .takes_value(true)
+                .global(true)
+                .help("YAML data deserialization declaration file"),
+        )
         .subcommand(
-            SubCommand::with_name("deser")
-                .about("Deserialize account data")
+            App::new("account").about("Deserialize single account").arg(
+                Arg::with_name("pkstr")
+                    .display_order(1)
+                    .long("pubkey")
+                    .short("p")
+                    .validator(is_valid_pubkey)
+                    .required(false)
+                    .takes_value(true)
+                    .help("Account publickey string"),
+            ),
+        )
+        .subcommand(
+            App::new("program")
+                .about("Deserialize all program owned accounts")
                 .arg(
-                    Arg::with_name("account")
+                    Arg::with_name("pkstr")
                         .display_order(1)
-                        .long("account")
-                        .short("a")
+                        .long("pubkey")
+                        .short("p")
                         .validator(is_valid_pubkey)
                         .required(false)
                         .takes_value(true)
-                        .help("Account ID string (overrides default keypair)"),
-                )
-                .arg(
-                    Arg::with_name("data-map")
-                        .display_order(2)
-                        .long("data-map")
-                        .short("d")
-                        .required(true)
-                        .takes_value(true)
-                        .help("Data definition file"),
+                        .help("Program publickey string"),
                 ),
         )
         .get_matches()

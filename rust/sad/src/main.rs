@@ -67,13 +67,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let rpc_client = RpcClient::new(config.json_rpc_url.clone());
     match (sub_command, sub_matches) {
-        ("deser", Some(_arg_matchs)) => {
-            let dfile = load_yaml_file(matches.value_of("data-map").unwrap()).unwrap();
-            // let dmap = DataMap::new(dfile)?;
-            let account: Pubkey = match matches.value_of("account") {
+        ("account", Some(_arg_matchs)) => {
+            // let dfile = load_yaml_file(matches.value_of("declfile").unwrap()).unwrap();
+            let account_pubkey: Pubkey = match matches.value_of("pkstr") {
                 Some(acc) => Pubkey::from_str(acc).unwrap(),
                 None => config.default_signer.pubkey(),
             };
+            println!("{}", account_pubkey);
         }
         _ => unreachable!(),
     }

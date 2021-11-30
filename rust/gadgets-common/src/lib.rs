@@ -19,6 +19,9 @@ pub fn load_yaml_file(yaml_file: &str) -> Result<Vec<Yaml>, io::Error> {
 mod tests {
 
     use super::*;
+    use std::env;
+    const SCLI: &str = "../../samples/yamldecls/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml";
+    const NONEXIST: &str = "../../samples/yamldecls/nothere.yml";
 
     fn print_indent(indent: usize) {
         for _ in 0..indent {
@@ -49,13 +52,15 @@ mod tests {
 
     #[test]
     fn load_yaml_file_pass() {
-        let result = load_yaml_file("../yaml_samps/test.yml");
+        let path = env::current_dir().unwrap();
+        println!("The current directory is {}", path.display());
+        let result = load_yaml_file(SCLI);
         assert!(result.is_ok());
         dump_node(&result.unwrap()[0], 0);
     }
     #[test]
     fn load_yaml_file_fail() {
-        let y = load_yaml_file("../yaml_samps/test_noexist.yml");
+        let y = load_yaml_file(NONEXIST);
         assert!(y.is_err());
     }
 }
