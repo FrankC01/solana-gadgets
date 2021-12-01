@@ -1,0 +1,94 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'gadgets-common'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=gadgets-common"
+                ],
+                "filter": {
+                    "name": "gadgets-common",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug account 'sad'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=sad",
+                    "--package=sad"
+                ],
+                "filter": {
+                    "name": "sad",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "account",
+                "-d",
+                "../samples/yamldecls/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml",
+                "-p",
+                "A94wMjV54C8f8wn7zL8TxNCdNiGoq7XSN7vWGrtd4vwU"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug program 'sad'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=sad",
+                    "--package=sad"
+                ],
+                "filter": {
+                    "name": "sad",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "program",
+                "-d",
+                "../samples/yamldecls/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml",
+                "-p",
+                "SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'sad'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=sad",
+                    "--package=sad"
+                ],
+                "filter": {
+                    "name": "sad",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

@@ -73,7 +73,7 @@ pub fn parse_command_line() -> ArgMatches<'static> {
                     .validator(is_valid_pubkey)
                     .required(false)
                     .takes_value(true)
-                    .help("Account publickey string"),
+                    .help("Account publickey string [default: configuration keypair]"),
             ),
         )
         .subcommand(
@@ -87,7 +87,7 @@ pub fn parse_command_line() -> ArgMatches<'static> {
                         .validator(is_valid_pubkey)
                         .required(false)
                         .takes_value(true)
-                        .help("Program publickey string"),
+                        .help("Program publickey string [default: configuration keypair]"),
                 ),
         )
         .get_matches()

@@ -15,6 +15,7 @@ mod clparse;
 mod datamap;
 mod desertree;
 mod errors;
+mod solq;
 
 struct Config {
     commitment_config: CommitmentConfig,
@@ -66,14 +67,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("JSON RPC URL: {}", config.json_rpc_url);
     }
     let rpc_client = RpcClient::new(config.json_rpc_url.clone());
+    // Get the deserialization descriptor
+    let indecl = if let Some(ind) = matches.value_of("decl") {
+        load_yaml_file(ind).unwrap_or_else(|err| {
+            eprintln!("File error: On {} {}", ind, err);
+            exit(1)
+        })
+    } else {
+        eprintln!("Requires -d or --declfile argument");
+        exit(1);
+    };
+
     match (sub_command, sub_matches) {
         ("account", Some(_arg_matchs)) => {
-            // let dfile = load_yaml_file(matches.value_of("declfile").unwrap()).unwrap();
             let account_pubkey: Pubkey = match matches.value_of("pkstr") {
                 Some(acc) => Pubkey::from_str(acc).unwrap(),
                 None => config.default_signer.pubkey(),
             };
-            println!("{}", account_pubkey);
+            println!("{:?}", solq::solana_account(&rpc_client, &account_pubkey));
+        }
+        ("program", Some(_arg_matchs)) => {
+            let account_pubkey: Pubkey = match matches.value_of("pkstr") {
+                Some(acc) => Pubkey::from_str(acc).unwrap(),
+                None => config.default_signer.pubkey(),
+            };
+            println!(
+                "{:?}",
+                solq::solana_program_accounts(&rpc_client, &account_pubkey)
+            );
         }
         _ => unreachable!(),
     }

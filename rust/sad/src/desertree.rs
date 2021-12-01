@@ -1,4 +1,7 @@
 //! @brief Heart of deserialization
+//! Constructs for instantiating parse tree with constructs
+//! from YAML declaration and then walking said tree to deserialize
+//! input vector of bytes that come from a program owned account data
 
 use {
     crate::{
