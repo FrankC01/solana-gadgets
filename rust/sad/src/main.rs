@@ -1,5 +1,7 @@
 //! @brief Main entry poiint for CLI
 
+use desertree::Deseriaizer;
+
 use {
     gadgets_common::load_yaml_file,
     solana_clap_utils::{input_validators::normalize_to_url_if_moniker, keypair::DefaultSigner},
@@ -78,13 +80,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         exit(1);
     };
 
+    // Setup the deserialization tree
+    let destree = Deseriaizer::new(&indecl[0]);
+
     match (sub_command, sub_matches) {
         ("account", Some(_arg_matchs)) => {
             let account_pubkey: Pubkey = match matches.value_of("pkstr") {
                 Some(acc) => Pubkey::from_str(acc).unwrap(),
                 None => config.default_signer.pubkey(),
             };
-            println!("{:?}", solq::solana_account(&rpc_client, &account_pubkey));
+            println!(
+                "{:?}",
+                solq::deserialize_account(&rpc_client, &account_pubkey, &destree)
+            );
         }
         ("program", Some(_arg_matchs)) => {
             let account_pubkey: Pubkey = match matches.value_of("pkstr") {
@@ -93,7 +101,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             println!(
                 "{:?}",
-                solq::solana_program_accounts(&rpc_client, &account_pubkey)
+                solq::deserialize_program_accounts(&rpc_client, &account_pubkey, &destree)
             );
         }
         _ => unreachable!(),

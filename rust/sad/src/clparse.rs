@@ -1,9 +1,7 @@
 //! @brief command line setup and parse
 
 use {
-    clap::{
-        crate_description, crate_name, crate_version, App, AppSettings, Arg, ArgMatches, SubCommand,
-    },
+    clap::{crate_description, crate_name, crate_version, App, AppSettings, Arg, ArgMatches},
     solana_clap_utils::input_validators::{is_url_or_moniker, is_valid_pubkey, is_valid_signer},
 };
 

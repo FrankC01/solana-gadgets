@@ -43,7 +43,7 @@
                 "-d",
                 "../samples/yamldecls/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml",
                 "-p",
-                "A94wMjV54C8f8wn7zL8TxNCdNiGoq7XSN7vWGrtd4vwU"
+                "5gMsBeLmPkwEKQ1H2AwceAPasXLyZ4tvWGCYR59qf47U"
             ],
             "cwd": "${workspaceFolder}"
         },
