@@ -13,13 +13,13 @@ use {
     std::collections::HashMap,
     yaml_rust::yaml::Yaml,
 };
-
+/// Simple Node for tree membership
 trait Node: std::fmt::Debug {
     /// Clone of the inbound yaml sad 'type'
     fn decl_type(&self) -> &String;
     fn deser(&self, data: &mut &[u8], collection: &mut Vec<SadValue>);
 }
-
+/// Simple branch for tree membership
 trait NodeWithChildren: Node {
     fn children(&self) -> &Vec<Box<dyn Node>>;
 }
@@ -31,6 +31,7 @@ const SAD_YAML_SIZE_TYPE: &str = "size_type";
 const SAD_YAML_CONTAINS: &str = "contains";
 const SAD_YAML_FIELDS: &str = "fields";
 
+/// Implements Node for low level scalar types
 #[derive(Debug)]
 pub struct SadLeaf {
     sad_value_type: String,
@@ -58,6 +59,8 @@ impl Node for SadLeaf {
         collection.push(deser_value_for(self.decl_type(), data));
     }
 }
+
+/// Implements NodeWithChildren for SadStructure Named Fields
 #[derive(Debug)]
 pub struct SadNamedField {
     sad_field_name: String,
@@ -103,6 +106,7 @@ impl NodeWithChildren for SadNamedField {
     }
 }
 
+/// Implements NodeWithChildren for length prefixed children
 #[derive(Debug)]
 pub struct SadLengthPrefix {
     sad_value_type: String,
@@ -158,6 +162,8 @@ impl NodeWithChildren for SadLengthPrefix {
         &self.children
     }
 }
+
+/// Implements NodeWithChildren for HashMap
 #[derive(Debug)]
 pub struct SadHashMap {
     sad_value_type: String,
@@ -212,6 +218,7 @@ impl NodeWithChildren for SadHashMap {
     }
 }
 
+/// Implements NodeWithChildren for Structure (i.e. Rust struct)
 #[derive(Debug)]
 pub struct SadStructure {
     sad_value_type: String,
@@ -262,6 +269,7 @@ impl NodeWithChildren for SadStructure {
     }
 }
 
+/// Implements NodeWithChildren for Vector (i.e. Rust Vec)
 #[derive(Debug)]
 pub struct SadVector {
     sad_value_type: String,
@@ -316,6 +324,7 @@ impl NodeWithChildren for SadVector {
     }
 }
 
+/// Implements NodeWithChildren for Tuple (i.e. Rust tuple)
 #[derive(Debug)]
 pub struct SadTuple {
     sad_value_type: String,
@@ -363,6 +372,8 @@ impl NodeWithChildren for SadTuple {
     }
 }
 
+/// Implements NodeWithChildren for SadTree which holds
+/// the YAML parse tree for deserialization
 #[derive(Debug)]
 pub struct SadTree {
     yaml_decl_type: String,
@@ -414,6 +425,7 @@ impl Node for SadTree {
     }
 }
 
+/// Public struct for interacting deserialization to YAML construct declarations
 #[derive(Debug)]
 pub struct Deseriaizer<'a> {
     yaml_declaration: &'a Yaml,
@@ -428,6 +440,7 @@ impl<'a> Deseriaizer<'a> {
         }
     }
     pub fn deser(&self, data: &mut &[u8]) -> SadTreeResult<Vec<SadValue>> {
+        let inbound = data.to_vec();
         let mut hm = Vec::<SadValue>::new();
         self.tree().deser(data, &mut hm);
         Ok(hm)
@@ -436,6 +449,8 @@ impl<'a> Deseriaizer<'a> {
         &self.sad_tree
     }
 }
+
+// Jump table for generalizing parse construction
 lazy_static! {
     static ref JUMP_TABLE: HashMap<String, fn(&Yaml) -> Result<Box<dyn Node>, SadTreeError>> = {
         let mut jump_table =
@@ -451,6 +466,7 @@ lazy_static! {
     };
 }
 
+/// Dispatches YAML parse Node types
 fn parse(in_yaml: &Yaml) -> Result<Box<dyn Node>, SadTreeError> {
     let default = JUMP_TABLE.get("other").unwrap();
     // Expects a Hash construct and first entry
@@ -520,7 +536,6 @@ mod tests {
     }
     #[test]
     fn test_runner_pass() {
-        // let result = load_yaml_file("../yaml_samps/test.yml").unwrap();
         let result = load_yaml_file("../yaml_samps/runner.yml").unwrap();
         for body in result {
             println!("{:?}", Deseriaizer::new(&body).tree());
@@ -537,7 +552,7 @@ mod tests {
         let desc = Deseriaizer::new(&result[INDEX_HASHMAP_STRING_U128]);
         let data = mhmap.try_to_vec().unwrap();
         let deserialize_vector = desc.deser(&mut data.as_slice());
-        println!("{:?}", deserialize_vector);
+        println!("{:?}", deserialize_vector.unwrap());
     }
     #[test]
     fn test_length_prefix_hashmap_pass() {
@@ -552,7 +567,7 @@ mod tests {
         let mut head = lpref.try_to_vec().unwrap();
         head.extend(data);
         let deserialize_vector = desc.deser(&mut head.as_slice());
-        println!("{:?}", deserialize_vector);
+        println!("{:?}", deserialize_vector.unwrap());
     }
 
     #[test]
@@ -564,7 +579,7 @@ mod tests {
         let desc = Deseriaizer::new(&result[INDEX_VECTOR_STRING]);
         let data = mhmap.try_to_vec().unwrap();
         let deserialize_vector = desc.deser(&mut data.as_slice());
-        println!("{:?}", deserialize_vector);
+        println!("{:?}", deserialize_vector.unwrap());
     }
 
     #[test]
@@ -576,7 +591,7 @@ mod tests {
         let desc = Deseriaizer::new(&result[INDEX_VECTOR_U32]);
         let data = mhmap.try_to_vec().unwrap();
         let deserialize_vector = desc.deser(&mut data.as_slice());
-        println!("{:?}", deserialize_vector);
+        println!("{:?}", deserialize_vector.unwrap());
     }
 
     #[test]
@@ -587,7 +602,7 @@ mod tests {
         let data = mhmap.try_to_vec().unwrap();
         println!("{:?}", data);
         let deserialize_vector = desc.deser(&mut data.as_slice());
-        println!("{:?}", deserialize_vector);
+        println!("{:?}", deserialize_vector.unwrap());
     }
 
     #[test]
@@ -601,7 +616,7 @@ mod tests {
         let data = mhmap.try_to_vec().unwrap();
         println!("{:?}", data);
         let deserialize_vector = desc.deser(&mut data.as_slice());
-        println!("{:?}", deserialize_vector);
+        println!("{:?}", deserialize_vector.unwrap());
     }
 
     #[test]
@@ -611,6 +626,6 @@ mod tests {
         let result = load_yaml_file(SCLI).unwrap();
         let desc = Deseriaizer::new(&result[0]);
         let deserialize_vector = desc.deser(&mut pacv.as_slice());
-        println!("{:?}", deserialize_vector);
+        println!("{:?}", deserialize_vector.unwrap());
     }
 }

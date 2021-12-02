@@ -26,6 +26,10 @@ pub enum SadAccountErrorType {
     FailedAccountGet,
     #[error("Failed getting Program Accounts from cluster")]
     FailedProgramAccountGet,
+    #[error("Could not resolve Solana config")]
+    ConfigFileError,
+    #[error("RcpClient creation failed")]
+    RpcSetupFail,
 }
 
 pub type SadTreeResult<T> = std::result::Result<T, SadTreeError>;

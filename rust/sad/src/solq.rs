@@ -13,6 +13,63 @@ use {
     },
 };
 
+/// Identifies type of processing for deserialization
+#[derive(Debug, PartialEq)]
+pub enum ResultForKeyType {
+    SingleAccount,
+    ProgramAccount(Pubkey),
+}
+
+/// Context of deserialization
+#[derive(Debug)]
+pub struct AccountResultContext {
+    key: Pubkey,
+    account: Account,
+    deserialized: Vec<SadValue>,
+}
+
+impl AccountResultContext {
+    pub fn new(pkey: Pubkey, acc: Account, deser: Vec<SadValue>) -> Self {
+        Self {
+            key: pkey,
+            account: acc,
+            deserialized: deser,
+        }
+    }
+
+    pub fn pubkey(&self) -> &Pubkey {
+        &self.key
+    }
+
+    pub fn account(&self) -> &Account {
+        &self.account
+    }
+
+    pub fn deserialize_list(&self) -> &Vec<SadValue> {
+        &self.deserialized
+    }
+}
+
+/// Generalized deserialization result
+#[derive(Debug)]
+pub struct DeserializationResult {
+    account_type: ResultForKeyType,
+    contexts: Vec<AccountResultContext>,
+}
+
+impl DeserializationResult {
+    pub fn account_type(&self) -> &ResultForKeyType {
+        &self.account_type
+    }
+
+    pub fn context_count(&self) -> usize {
+        self.contexts.len()
+    }
+
+    pub fn context_vec(&self) -> &Vec<AccountResultContext> {
+        &self.contexts
+    }
+}
 /// Retrieves a single account from RPC cluster
 ///
 /// Presumes that the key is a program owned account
@@ -33,15 +90,10 @@ pub fn solana_account(rpc_client: &RpcClient, key: &Pubkey) -> SadAccountResult<
 pub fn solana_program_accounts(
     rpc_client: &RpcClient,
     key: &Pubkey,
-) -> SadAccountResult<Vec<Account>> {
+) -> SadAccountResult<Vec<(Pubkey, Account)>> {
     match rpc_client.get_program_accounts(key) {
-        Ok(vec) => {
-            let mut ovec = Vec::<Account>::new();
-            for ivec in vec {
-                ovec.push(ivec.1)
-            }
-            Ok(ovec)
-        }
+        Ok(vec) => Ok(vec),
+
         Err(e) => {
             eprintln!("{}", e);
             Err(SadAccountErrorType::FailedProgramAccountGet)
@@ -54,10 +106,17 @@ pub fn deserialize_account(
     rpc_client: &RpcClient,
     key: &Pubkey,
     destree: &Deseriaizer,
-) -> SadAccountResult<Vec<SadValue>> {
+) -> SadAccountResult<DeserializationResult> {
     let solacc = solana_account(rpc_client, key)?;
+    let mut resvec = Vec::<AccountResultContext>::new();
     match destree.deser(&mut solacc.data()) {
-        Ok(res) => Ok(res),
+        Ok(res) => {
+            resvec.push(AccountResultContext::new(key.clone(), solacc, res));
+            Ok(DeserializationResult {
+                account_type: ResultForKeyType::SingleAccount,
+                contexts: resvec,
+            })
+        }
         Err(_) => todo!(),
     }
 }
@@ -67,14 +126,102 @@ pub fn deserialize_program_accounts(
     rpc_client: &RpcClient,
     key: &Pubkey,
     destree: &Deseriaizer,
-) -> SadAccountResult<Vec<Vec<SadValue>>> {
+) -> SadAccountResult<DeserializationResult> {
     let solacc = solana_program_accounts(rpc_client, key)?;
-    let mut ovec = Vec::<Vec<SadValue>>::new();
+    let mut resvec = Vec::<AccountResultContext>::new();
     for acc in solacc {
-        match destree.deser(&mut acc.data()) {
-            Ok(res) => ovec.push(res),
+        match destree.deser(&mut acc.1.data()) {
+            Ok(res) => resvec.push(AccountResultContext::new(acc.0.clone(), acc.1, res)),
             Err(_) => todo!(),
         }
     }
-    Ok(ovec)
+    Ok(DeserializationResult {
+        account_type: ResultForKeyType::ProgramAccount(key.clone()),
+        contexts: resvec,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    use gadgets_common::load_yaml_file;
+    use solana_cli_config::*;
+    // Presume solana-cli-program accounts
+    const SCLI: &str = "../../samples/yamldecls/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml";
+
+    fn get_config_rpcclient() -> SadAccountResult<(Config, RpcClient)> {
+        if let Some(x) = &*CONFIG_FILE {
+            let cfg = match Config::load(&x) {
+                Ok(config) => config,
+                Err(e) => {
+                    eprintln!("{}", e);
+                    return Err(SadAccountErrorType::ConfigFileError);
+                }
+            };
+            let rpc_client = RpcClient::new(cfg.json_rpc_url.clone());
+            Ok((cfg, rpc_client))
+        } else {
+            Err(SadAccountErrorType::ConfigFileError)
+        }
+    }
+
+    #[test]
+    fn test_fetch_singleaccount_pass() {
+        let (_, rpc_client) = get_config_rpcclient().unwrap();
+        // Presume solana-cli-program accounts are created and run either locally or devnet
+        let pubkey = Pubkey::from_str("5gMsBeLmPkwEKQ1H2AwceAPasXLyZ4tvWGCYR59qf47U").unwrap();
+        let x = solana_account(&rpc_client, &pubkey);
+        assert!(x.is_ok());
+        println!("{:?}", x.unwrap());
+    }
+    #[test]
+    fn test_fetch_programaccounts_pass() {
+        let (_, rpc_client) = get_config_rpcclient().unwrap();
+        // Presume solana-cli-program accounts are created and run either locally or devnet
+        let pubkey = Pubkey::from_str("SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv").unwrap();
+        // let pubkey = Pubkey::from_str("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA").unwrap();
+        let x = solana_program_accounts(&rpc_client, &pubkey);
+        assert!(x.is_ok());
+        println!("{:?}", x.unwrap());
+    }
+
+    #[test]
+    fn test_deserialize_singleaccount_pass() {
+        let (_, rpc_client) = get_config_rpcclient().unwrap();
+        // Presume solana-cli-program accounts are created and run either locally or devnet
+        let pubkey = Pubkey::from_str("5gMsBeLmPkwEKQ1H2AwceAPasXLyZ4tvWGCYR59qf47U").unwrap();
+        let yamldecl = load_yaml_file(SCLI).unwrap();
+        let deser =
+            deserialize_account(&rpc_client, &pubkey, &Deseriaizer::new(&yamldecl[0])).unwrap();
+        assert_eq!(deser.context_count(), 1);
+        assert_eq!(deser.account_type(), &ResultForKeyType::SingleAccount);
+        let oneresult = deser.context_vec().first().unwrap();
+        assert_eq!(oneresult.pubkey(), &pubkey);
+        println!("{:?}", oneresult.deserialize_list());
+    }
+    #[test]
+    fn test_deserialize_programaccount_pass() {
+        let (_, rpc_client) = get_config_rpcclient().unwrap();
+        // Presume solana-cli-program accounts are created and run either locally or devnet
+        let pubkey = Pubkey::from_str("SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv").unwrap();
+        let onekey = Pubkey::from_str("A94wMjV54C8f8wn7zL8TxNCdNiGoq7XSN7vWGrtd4vwU").unwrap();
+        let twokey = Pubkey::from_str("5gMsBeLmPkwEKQ1H2AwceAPasXLyZ4tvWGCYR59qf47U").unwrap();
+        let yamldecl = load_yaml_file(SCLI).unwrap();
+        let deser =
+            deserialize_program_accounts(&rpc_client, &pubkey, &Deseriaizer::new(&yamldecl[0]))
+                .unwrap();
+        assert_eq!(deser.context_count(), 2);
+        assert_eq!(
+            deser.account_type(),
+            &ResultForKeyType::ProgramAccount(pubkey)
+        );
+        let key_list = [&onekey, &twokey];
+        let cvec = deser.context_vec();
+        for i in 0..2 {
+            assert_eq!(cvec[i].pubkey(), key_list[i]);
+            println!("{:?}", cvec[i].deserialize_list());
+        }
+    }
 }
