@@ -10,7 +10,8 @@ pub fn parse_command_line() -> ArgMatches<'static> {
     App::new(crate_name!())
         .about(crate_description!())
         .version(crate_version!())
-        .setting(AppSettings::SubcommandRequiredElseHelp)
+        // .setting(AppSettings::SubcommandRequiredElseHelp)
+        .setting(AppSettings::ArgRequiredElseHelp)
         .arg({
             let arg = Arg::with_name("config_file")
                 .short("C")
@@ -25,16 +26,6 @@ pub fn parse_command_line() -> ArgMatches<'static> {
                 arg
             }
         })
-        .arg(
-            Arg::with_name("keypair")
-                .long("keypair")
-                .value_name("KEYPAIR")
-                .short("k")
-                .validator(is_valid_signer)
-                .takes_value(true)
-                .global(true)
-                .help("Filepath or URL to a keypair [default: client keypair]"),
-        )
         .arg(
             Arg::with_name("verbose")
                 .long("verbose")
@@ -69,9 +60,9 @@ pub fn parse_command_line() -> ArgMatches<'static> {
                     .long("pubkey")
                     .short("p")
                     .validator(is_valid_pubkey)
-                    .required(false)
+                    .required(true)
                     .takes_value(true)
-                    .help("Account publickey string [default: configuration keypair]"),
+                    .help("Account publickey string"),
             ),
         )
         .subcommand(
@@ -83,9 +74,9 @@ pub fn parse_command_line() -> ArgMatches<'static> {
                         .long("pubkey")
                         .short("p")
                         .validator(is_valid_pubkey)
-                        .required(false)
+                        .required(true)
                         .takes_value(true)
-                        .help("Program publickey string [default: configuration keypair]"),
+                        .help("Program publickey string"),
                 ),
         )
         .get_matches()

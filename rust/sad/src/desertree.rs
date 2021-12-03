@@ -5,8 +5,8 @@
 
 use {
     crate::{
-        datamap::{deser_value_for, is_sadvalue_type, SadValue},
         errors::{SadTreeError, SadTreeResult},
+        sadtypes::{deser_value_for, is_sadvalue_type, SadValue},
     },
     borsh::BorshDeserialize,
     lazy_static::*,

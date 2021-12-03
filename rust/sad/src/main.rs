@@ -14,9 +14,9 @@ use {
 
 /// sad main module
 mod clparse;
-mod datamap;
 mod desertree;
 mod errors;
+mod sadtypes;
 mod solq;
 
 struct Config {
@@ -38,13 +38,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             solana_cli_config::Config::default()
         };
 
-        let default_signer = DefaultSigner::new(
-            "keypair".to_string(),
-            matches
-                .value_of(&"keypair")
-                .map(|s| s.to_string())
-                .unwrap_or_else(|| cli_config.keypair_path.clone()),
-        );
+        let default_signer =
+            DefaultSigner::new("keypair".to_string(), cli_config.keypair_path.clone());
 
         Config {
             json_rpc_url: normalize_to_url_if_moniker(
@@ -63,6 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             commitment_config: CommitmentConfig::confirmed(),
         }
     };
+    // Change to "solana=debug" if needed
     solana_logger::setup_with_default("solana=info");
 
     if config.verbose {
@@ -82,29 +78,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Setup the deserialization tree
     let destree = Deseriaizer::new(&indecl[0]);
-
-    match (sub_command, sub_matches) {
-        ("account", Some(_arg_matchs)) => {
+    let deserialize_result = match (sub_command, sub_matches) {
+        ("account", Some(_)) => {
             let account_pubkey: Pubkey = match matches.value_of("pkstr") {
                 Some(acc) => Pubkey::from_str(acc).unwrap(),
                 None => config.default_signer.pubkey(),
             };
-            println!(
-                "{:?}",
-                solq::deserialize_account(&rpc_client, &account_pubkey, &destree)
-            );
+            solq::deserialize_account(&rpc_client, &account_pubkey, &destree)?
         }
-        ("program", Some(_arg_matchs)) => {
-            let account_pubkey: Pubkey = match matches.value_of("pkstr") {
+        ("program", Some(_)) => {
+            let program_pubkey: Pubkey = match matches.value_of("pkstr") {
                 Some(acc) => Pubkey::from_str(acc).unwrap(),
                 None => config.default_signer.pubkey(),
             };
-            println!(
-                "{:?}",
-                solq::deserialize_program_accounts(&rpc_client, &account_pubkey, &destree)
-            );
+            solq::deserialize_program_accounts(&rpc_client, &program_pubkey, &destree)?
         }
         _ => unreachable!(),
-    }
+    };
+
     Ok(())
 }
