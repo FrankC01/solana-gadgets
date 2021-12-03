@@ -39,7 +39,6 @@ def sad_cmd_parser(in_cfg: Config):
                            "--keyfile",
                            help="Account or program keyfile",
                            required=False,
-                           default=in_cfg.default_keypair,
                            dest='keyfile',
                            action='store')
     key_group.add_argument('-p',

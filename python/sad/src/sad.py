@@ -43,6 +43,8 @@ def main():
     try:
         # Account's public key
         pubkey = None
+        if not args.pkstr and not args.keyfile:
+            raise Exception("Must specify either'-k' or '-p' arguments")
         if args.pkstr:
             pubkey = public_key_from_str(args.pkstr)
         else:
