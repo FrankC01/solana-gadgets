@@ -1,13 +1,17 @@
 //! @brief Main entry poiint for CLI
 
-use desertree::Deseriaizer;
-
 use {
+    desertree::Deseriaizer,
     gadgets_common::load_yaml_file,
     solana_clap_utils::{input_validators::normalize_to_url_if_moniker, keypair::DefaultSigner},
     solana_client::rpc_client::RpcClient,
     solana_remote_wallet::remote_wallet::RemoteWalletManager,
-    solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signer},
+    solana_sdk::{
+        commitment_config::CommitmentConfig,
+        pubkey::Pubkey,
+        signature::{read_keypair_file, Signer},
+    },
+    std::path::Path,
     std::str::FromStr,
     std::{process::exit, sync::Arc},
 };
@@ -76,22 +80,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         exit(1);
     };
 
+    // Setup the account or program public key
+    let target_pubkey = if matches.is_present("pkstr") {
+        Pubkey::from_str(matches.value_of("pkstr").unwrap())?
+    } else {
+        let kp = read_keypair_file(Path::new(matches.value_of("keypair").unwrap()))?;
+        kp.pubkey()
+    };
+
     // Setup the deserialization tree
     let destree = Deseriaizer::new(&indecl[0]);
     let deserialize_result = match (sub_command, sub_matches) {
-        ("account", Some(_)) => {
-            let account_pubkey: Pubkey = match matches.value_of("pkstr") {
-                Some(acc) => Pubkey::from_str(acc).unwrap(),
-                None => config.default_signer.pubkey(),
-            };
-            solq::deserialize_account(&rpc_client, &account_pubkey, &destree)?
-        }
+        ("account", Some(_)) => solq::deserialize_account(&rpc_client, &target_pubkey, &destree)?,
         ("program", Some(_)) => {
-            let program_pubkey: Pubkey = match matches.value_of("pkstr") {
-                Some(acc) => Pubkey::from_str(acc).unwrap(),
-                None => config.default_signer.pubkey(),
-            };
-            solq::deserialize_program_accounts(&rpc_client, &program_pubkey, &destree)?
+            solq::deserialize_program_accounts(&rpc_client, &target_pubkey, &destree)?
         }
         _ => unreachable!(),
     };

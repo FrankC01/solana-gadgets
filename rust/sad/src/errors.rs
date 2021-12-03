@@ -30,6 +30,10 @@ pub enum SadAccountErrorType {
     ConfigFileError,
     #[error("RcpClient creation failed")]
     RpcSetupFail,
+    #[error("Account key is an executable account")]
+    AccountIsExecutableError,
+    #[error("Not a valid Program key")]
+    NotProgramKeyError,
 }
 
 pub type SadTreeResult<T> = std::result::Result<T, SadTreeError>;

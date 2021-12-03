@@ -2,7 +2,7 @@
 
 use {
     clap::{crate_description, crate_name, crate_version, App, AppSettings, Arg, ArgMatches},
-    solana_clap_utils::input_validators::{is_url_or_moniker, is_valid_pubkey, is_valid_signer},
+    solana_clap_utils::input_validators::{is_keypair, is_pubkey, is_url_or_moniker},
 };
 
 /// Construct the cli input model and parse command line
@@ -53,31 +53,26 @@ pub fn parse_command_line() -> ArgMatches<'static> {
                 .global(true)
                 .help("YAML data deserialization declaration file"),
         )
-        .subcommand(
-            App::new("account").about("Deserialize single account").arg(
-                Arg::with_name("pkstr")
-                    .display_order(1)
-                    .long("pubkey")
-                    .short("p")
-                    .validator(is_valid_pubkey)
-                    .required(true)
-                    .takes_value(true)
-                    .help("Account publickey string"),
-            ),
+        .arg(
+            Arg::with_name("keypair")
+                .conflicts_with("pkstr")
+                .long("keypair")
+                .global(true)
+                .short("k")
+                .validator(is_keypair)
+                .takes_value(true)
+                .help("Keypair to extract public key from. Mutually exclusive with '--pubkey'"),
         )
-        .subcommand(
-            App::new("program")
-                .about("Deserialize all program owned accounts")
-                .arg(
-                    Arg::with_name("pkstr")
-                        .display_order(1)
-                        .long("pubkey")
-                        .short("p")
-                        .validator(is_valid_pubkey)
-                        .required(true)
-                        .takes_value(true)
-                        .help("Program publickey string"),
-                ),
+        .arg(
+            Arg::with_name("pkstr")
+                .long("pubkey")
+                .global(true)
+                .short("p")
+                .validator(is_pubkey)
+                .takes_value(true)
+                .help("Publickey string. Mutually exclusive with '--keyfile'"),
         )
+        .subcommand(App::new("account").about("Deserialize single account"))
+        .subcommand(App::new("program").about("Deserialize all program owned accounts"))
         .get_matches()
 }

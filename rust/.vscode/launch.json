@@ -42,8 +42,8 @@
                 "account",
                 "-d",
                 "../samples/yamldecls/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml",
-                "-p",
-                "5gMsBeLmPkwEKQ1H2AwceAPasXLyZ4tvWGCYR59qf47U"
+                "-k",
+                "../samples/keys/user2_account.json"
             ],
             "cwd": "${workspaceFolder}"
         },

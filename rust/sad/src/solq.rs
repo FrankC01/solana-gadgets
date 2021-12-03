@@ -91,9 +91,12 @@ pub fn solana_program_accounts(
     rpc_client: &RpcClient,
     key: &Pubkey,
 ) -> SadAccountResult<Vec<(Pubkey, Account)>> {
+    let vaccount = solana_account(rpc_client, key)?;
+    if vaccount.executable() != true {
+        return Err(SadAccountErrorType::NotProgramKeyError);
+    }
     match rpc_client.get_program_accounts(key) {
         Ok(vec) => Ok(vec),
-
         Err(e) => {
             eprintln!("{}", e);
             Err(SadAccountErrorType::FailedProgramAccountGet)
@@ -108,6 +111,9 @@ pub fn deserialize_account(
     destree: &Deseriaizer,
 ) -> SadAccountResult<DeserializationResult> {
     let solacc = solana_account(rpc_client, key)?;
+    if solacc.executable() == true {
+        return Err(SadAccountErrorType::AccountIsExecutableError);
+    }
     let mut resvec = Vec::<AccountResultContext>::new();
     match destree.deser(&mut solacc.data()) {
         Ok(res) => {
@@ -220,7 +226,11 @@ mod tests {
         let key_list = [&onekey, &twokey];
         let cvec = deser.context_vec();
         for i in 0..2 {
-            assert_eq!(cvec[i].pubkey(), key_list[i]);
+            key_list.iter().find(|x| *x == &cvec[i].pubkey());
+            assert_eq!(
+                key_list.iter().find(|x| *x == &cvec[i].pubkey()),
+                Some(&cvec[i].pubkey())
+            );
             println!("{:?}", cvec[i].deserialize_list());
         }
     }
