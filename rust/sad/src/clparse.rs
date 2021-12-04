@@ -72,7 +72,59 @@ pub fn parse_command_line() -> ArgMatches<'static> {
                 .takes_value(true)
                 .help("Publickey string. Mutually exclusive with '--keyfile'"),
         )
+        .arg(
+            Arg::with_name("output")
+                .long("output")
+                .short("o")
+                .global(true)
+                .takes_value(true)
+                .possible_values(&["csv", "excel", "stdout"])
+                .default_value("stdout")
+                .help("Direct output to file"),
+        )
+        .arg(
+            Arg::with_name("filename")
+                .long("filename")
+                .short("f")
+                .global(true)
+                .takes_value(true)
+                .required_ifs(&[("output", "excel"), ("output", "csv")])
+                .help("Filename for '-o excel' or '-o csv' output"),
+        )
         .subcommand(App::new("account").about("Deserialize single account"))
         .subcommand(App::new("program").about("Deserialize all program owned accounts"))
         .get_matches()
+}
+
+#[cfg(test)]
+mod tests {
+    use clap::ErrorKind;
+
+    use super::*;
+    #[test]
+    fn test_output_options_fail() {
+        let res = App::new("prog")
+            .arg(
+                Arg::with_name("output")
+                    .long("output")
+                    .short("o")
+                    .takes_value(true)
+                    .possible_values(&["csv", "excel", "stdout"])
+                    .default_value("stdout")
+                    .help("Direct output to file"),
+            )
+            .arg(
+                Arg::with_name("filename")
+                    .long("filename")
+                    .short("f")
+                    .takes_value(true)
+                    // .requires_if("excel", "output")
+                    .required_ifs(&[("output", "excel"), ("output", "csv")])
+                    .help("Filename for '-o excel' or '-o csv' output"),
+            )
+            .get_matches_from_safe(vec!["prog", "-o", "excel"]);
+        // println!("{:?}", res);
+        assert!(res.is_err()); // We  used -o excel so -f <filename> is required
+        assert_eq!(res.unwrap_err().kind, ErrorKind::MissingRequiredArgument);
+    }
 }

@@ -43,7 +43,11 @@
                 "-d",
                 "../samples/yamldecls/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml",
                 "-k",
-                "../samples/keys/user2_account.json"
+                "../samples/keys/user2_account.json",
+                // "-o",
+                // "csv",
+                // "-f",
+                // "~/somefile"
             ],
             "cwd": "${workspaceFolder}"
         },

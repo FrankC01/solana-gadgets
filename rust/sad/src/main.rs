@@ -3,6 +3,7 @@
 use {
     desertree::Deseriaizer,
     gadgets_common::load_yaml_file,
+    sadout::{SadCsvOutput, SadExcelOutput, SadOutput, SadSysOutput},
     solana_clap_utils::{input_validators::normalize_to_url_if_moniker, keypair::DefaultSigner},
     solana_client::rpc_client::RpcClient,
     solana_remote_wallet::remote_wallet::RemoteWalletManager,
@@ -20,6 +21,7 @@ use {
 mod clparse;
 mod desertree;
 mod errors;
+mod sadout;
 mod sadtypes;
 mod solq;
 
@@ -97,6 +99,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         _ => unreachable!(),
     };
+    // Check for output or default to pretty print
+    if matches.is_present("output") {
+        match matches.value_of("output").unwrap() {
+            "excel" => {
+                SadExcelOutput::new(deserialize_result, matches.value_of("filename").unwrap())
+                    .write()
+            }
+            "csv" => {
+                SadCsvOutput::new(deserialize_result, matches.value_of("filename").unwrap()).write()
+            }
+            "stdout" => {
+                if matches.is_present("filename") {
+                    println!(
+                        "'--filename {}' argument ignored for screen output",
+                        matches.value_of("filename").unwrap()
+                    );
+                }
+                SadSysOutput::new(deserialize_result).write()
+            }
+            _ => unreachable!(),
+        }
+    }
 
     Ok(())
 }

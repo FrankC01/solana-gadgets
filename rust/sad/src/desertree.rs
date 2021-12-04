@@ -440,7 +440,7 @@ impl<'a> Deseriaizer<'a> {
         }
     }
     pub fn deser(&self, data: &mut &[u8]) -> SadTreeResult<Vec<SadValue>> {
-        let inbound = data.to_vec();
+        // let inbound = data.to_vec();
         let mut hm = Vec::<SadValue>::new();
         self.tree().deser(data, &mut hm);
         Ok(hm)
