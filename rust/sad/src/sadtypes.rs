@@ -1,32 +1,53 @@
 //! @brief Deserialization Support
 
+use std::any::Any;
+
 use {
     borsh::BorshDeserialize,
     lazy_static::*,
     std::collections::HashMap,
-    strum::{EnumIter, EnumVariantNames, VariantNames},
+    strum::{EnumIter, EnumProperty, EnumVariantNames, VariantNames},
 };
 
-#[derive(Debug, EnumIter, EnumVariantNames)]
+#[derive(Debug, EnumIter, EnumVariantNames, EnumProperty)]
 pub enum SadValue {
+    #[strum(props(Type = "Scalar"))]
     String(String),
+    #[strum(props(Type = "Scalar"))]
     Bool(bool),
+    #[strum(props(Type = "Scalar"))]
     U8(u8),
+    #[strum(props(Type = "Scalar"))]
     U16(u16),
+    #[strum(props(Type = "Scalar"))]
     U32(u32),
+    #[strum(props(Type = "Scalar"))]
     U64(u64),
+    #[strum(props(Type = "Scalar"))]
     U128(u128),
+    #[strum(props(Type = "Scalar"))]
     I8(i8),
+    #[strum(props(Type = "Scalar"))]
     I16(i16),
+    #[strum(props(Type = "Scalar"))]
     I32(i32),
+    #[strum(props(Type = "Scalar"))]
     I64(i64),
+    #[strum(props(Type = "Scalar"))]
     I128(i128),
+    #[strum(props(Type = "Scalar"))]
     F32(f32),
+    #[strum(props(Type = "Scalar"))]
     F64(f64),
+    #[strum(props(Type = "Compound"))]
     Vec(Vec<SadValue>),
+    #[strum(props(Type = "Compound"))]
     Tuple(Vec<SadValue>),
+    #[strum(props(Type = "Nested Compound"))]
     HashMap(Vec<Vec<SadValue>>),
+    #[strum(props(Type = "Compound"))]
     CStruct(Vec<SadValue>),
+    #[strum(props(Type = "Compound"))]
     NamedField(Vec<SadValue>),
 }
 
@@ -36,6 +57,47 @@ pub fn is_sadvalue_type(in_str: &str) -> bool {
         None => false,
     }
 }
+
+pub fn is_sadtype_scalar(intype: &SadValue) -> bool {
+    // First check if it's a valid type
+    let s: &'static str = intype.get_str("Type").unwrap();
+    if s == "Scalar" {
+        true
+    } else {
+        false
+    }
+}
+
+pub fn is_simple_compound(intype: &SadValue) -> bool {
+    // First check if it's a valid type
+    let s: &'static str = intype.get_str("Type").unwrap();
+    if s == "Compound" {
+        true
+    } else {
+        false
+    }
+}
+
+pub fn from_scalar_value_for(intype: &SadValue) -> String {
+    match intype {
+        SadValue::String(item) => item.clone(),
+        SadValue::Bool(item) => item.to_string(),
+        SadValue::U8(item) => item.to_string(),
+        SadValue::U16(item) => item.to_string(),
+        SadValue::U32(item) => item.to_string(),
+        SadValue::U64(item) => item.to_string(),
+        SadValue::U128(item) => item.to_string(),
+        SadValue::I8(item) => item.to_string(),
+        SadValue::I16(item) => item.to_string(),
+        SadValue::I32(item) => item.to_string(),
+        SadValue::I64(item) => item.to_string(),
+        SadValue::I128(item) => item.to_string(),
+        SadValue::F32(item) => item.to_string(),
+        SadValue::F64(item) => item.to_string(),
+        _ => unreachable!(),
+    }
+}
+
 pub trait SadElement {
     fn deser(buf: &mut &[u8]) -> SadValue;
 }

@@ -487,8 +487,6 @@ mod tests {
     use strum::VariantNames;
     use yaml_rust::YamlLoader;
 
-    const SCLI: &str = "../../samples/yamldecls/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml";
-
     const INDEX_HASHMAP_STRING_U128: usize = 2;
     const INDEX_LENGTHPREFIX_HASHMAP: usize = 3;
     const INDEX_VECTOR_STRING: usize = 4;
@@ -503,6 +501,27 @@ mod tests {
     struct OfStruct {
         name: String,
         age: u32,
+    }
+    /// vscode changes cwd depending on running test or debugging test
+    fn get_runner_yaml() -> Vec<Yaml> {
+        if std::env::current_dir().unwrap().ends_with("sad") {
+            load_yaml_file("../yaml_samps/runner.yml").unwrap()
+        } else {
+            load_yaml_file("./yaml_samps/runner.yml").unwrap()
+        }
+    }
+
+    /// vscode changes cwd depending on running test or debugging test
+    fn get_sample_yaml() -> Vec<Yaml> {
+        if std::env::current_dir().unwrap().ends_with("sad") {
+            load_yaml_file(
+                "../../samples/yamldecls/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml",
+            )
+            .unwrap()
+        } else {
+            load_yaml_file("../samples/yamldecls/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml")
+                .unwrap()
+        }
     }
 
     #[test]
@@ -536,7 +555,7 @@ mod tests {
     }
     #[test]
     fn test_runner_pass() {
-        let result = load_yaml_file("../yaml_samps/runner.yml").unwrap();
+        let result = get_runner_yaml();
         for body in result {
             println!("{:?}", Deseriaizer::new(&body).tree());
         }
@@ -548,7 +567,7 @@ mod tests {
         mhmap.insert("foo", 1u128);
         mhmap.insert("bar", 2u128);
         mhmap.insert("baz", 3u128);
-        let result = load_yaml_file("../yaml_samps/runner.yml").unwrap();
+        let result = get_runner_yaml();
         let desc = Deseriaizer::new(&result[INDEX_HASHMAP_STRING_U128]);
         let data = mhmap.try_to_vec().unwrap();
         let deserialize_vector = desc.deser(&mut data.as_slice());
@@ -560,7 +579,7 @@ mod tests {
         mhmap.insert("foo", "1u128");
         mhmap.insert("bar", "2u128");
         mhmap.insert("baz", "3u128");
-        let result = load_yaml_file("../yaml_samps/runner.yml").unwrap();
+        let result = get_runner_yaml();
         let desc = Deseriaizer::new(&result[INDEX_LENGTHPREFIX_HASHMAP]);
         let data = mhmap.try_to_vec().unwrap();
         let lpref = data.len() as u32;
@@ -575,7 +594,7 @@ mod tests {
         let mut mhmap = Vec::<String>::new();
         mhmap.push(String::from("foo"));
         mhmap.push(String::from("bar"));
-        let result = load_yaml_file("../yaml_samps/runner.yml").unwrap();
+        let result = get_runner_yaml();
         let desc = Deseriaizer::new(&result[INDEX_VECTOR_STRING]);
         let data = mhmap.try_to_vec().unwrap();
         let deserialize_vector = desc.deser(&mut data.as_slice());
@@ -587,7 +606,7 @@ mod tests {
         let mut mhmap = Vec::<u32>::new();
         mhmap.push(1u32);
         mhmap.push(2u32);
-        let result = load_yaml_file("../yaml_samps/runner.yml").unwrap();
+        let result = get_runner_yaml();
         let desc = Deseriaizer::new(&result[INDEX_VECTOR_U32]);
         let data = mhmap.try_to_vec().unwrap();
         let deserialize_vector = desc.deser(&mut data.as_slice());
@@ -597,7 +616,7 @@ mod tests {
     #[test]
     fn test_tuple_pass() {
         let mhmap = OfTuple("Foo".to_string(), 19u128);
-        let result = load_yaml_file("../yaml_samps/runner.yml").unwrap();
+        let result = get_runner_yaml();
         let desc = Deseriaizer::new(&result[INDEX_TUPLE_STRING_U128]);
         let data = mhmap.try_to_vec().unwrap();
         println!("{:?}", data);
@@ -611,7 +630,7 @@ mod tests {
             name: "Frank".to_string(),
             age: 64,
         };
-        let result = load_yaml_file("../yaml_samps/runner.yml").unwrap();
+        let result = get_runner_yaml();
         let desc = Deseriaizer::new(&result[INDEX_STRUCT_STRING_U32]);
         let data = mhmap.try_to_vec().unwrap();
         println!("{:?}", data);
@@ -621,9 +640,11 @@ mod tests {
 
     #[test]
     fn test_deserialization_pass() {
+        println!("{:?}", std::env::current_dir().unwrap());
         let pacc = "ASUAAAABAAAABAAAAEFLZXkVAAAATWludGVkIGtleSB2YWx1ZSBwYWlyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
         let pacv = decode(pacc).unwrap();
-        let result = load_yaml_file(SCLI).unwrap();
+        let result = get_sample_yaml();
+        // let result = load_yaml_file(SCLI).unwrap();
         let desc = Deseriaizer::new(&result[0]);
         let deserialize_vector = desc.deser(&mut pacv.as_slice());
         println!("{:?}", deserialize_vector.unwrap());
