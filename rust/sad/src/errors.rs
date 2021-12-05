@@ -4,6 +4,8 @@ use thiserror::Error;
 pub enum SadTreeError {
     #[error("Don't know type {0}")]
     UnknownType(String),
+    #[error("Expected 'type:' as first entry, found {0}")]
+    ExpectedTypeKeyError(String),
     #[error("Expected YAML HashMap")]
     ExpectedHashMap,
     #[error("Expected YAML Array")]

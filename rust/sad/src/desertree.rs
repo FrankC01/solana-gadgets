@@ -173,9 +173,6 @@ pub struct SadHashMap {
 impl SadHashMap {
     fn from_yaml(in_yaml: &Yaml) -> SadTreeResult<Box<dyn Node>> {
         let in_str = in_yaml[SAD_YAML_TYPE].as_str().unwrap();
-        if !is_sadvalue_type(in_str) {
-            return Err(SadTreeError::UnknownType(String::from(in_str)));
-        }
         let mut array = Vec::<Box<dyn Node>>::new();
         let fields = &in_yaml[SAD_YAML_FIELDS];
         match fields {
@@ -228,10 +225,6 @@ pub struct SadStructure {
 impl SadStructure {
     fn from_yaml(in_yaml: &Yaml) -> SadTreeResult<Box<dyn Node>> {
         let in_str = in_yaml[SAD_YAML_TYPE].as_str().unwrap();
-        if !is_sadvalue_type(in_str) {
-            return Err(SadTreeError::UnknownType(String::from(in_str)));
-        }
-
         let mut array = Vec::<Box<dyn Node>>::new();
         let fields = &in_yaml[SAD_YAML_FIELDS];
 
@@ -279,10 +272,6 @@ pub struct SadVector {
 impl SadVector {
     fn from_yaml(in_yaml: &Yaml) -> SadTreeResult<Box<dyn Node>> {
         let in_str = in_yaml[SAD_YAML_TYPE].as_str().unwrap();
-        if !is_sadvalue_type(in_str) {
-            return Err(SadTreeError::UnknownType(String::from(in_str)));
-        }
-
         let mut array = Vec::<Box<dyn Node>>::new();
         let contains = &in_yaml[SAD_YAML_CONTAINS];
         match contains {
@@ -334,10 +323,6 @@ pub struct SadTuple {
 impl SadTuple {
     fn from_yaml(in_yaml: &Yaml) -> SadTreeResult<Box<dyn Node>> {
         let in_str = in_yaml[SAD_YAML_TYPE].as_str().unwrap();
-        if !is_sadvalue_type(in_str) {
-            return Err(SadTreeError::UnknownType(String::from(in_str)));
-        }
-
         let mut array = Vec::<Box<dyn Node>>::new();
         let fields = &in_yaml[SAD_YAML_FIELDS];
         match fields {
@@ -468,13 +453,18 @@ lazy_static! {
 
 /// Dispatches YAML parse Node types
 fn parse(in_yaml: &Yaml) -> Result<Box<dyn Node>, SadTreeError> {
-    let default = JUMP_TABLE.get("other").unwrap();
-    // Expects a Hash construct and first entry
-    let type_in = in_yaml.as_hash().unwrap().front().unwrap().1;
-    if let Some(s) = JUMP_TABLE.get(type_in.as_str().unwrap()) {
-        s(in_yaml)
+    let default_other = JUMP_TABLE.get("other").unwrap();
+    let entry = in_yaml.as_hash().unwrap().front().unwrap();
+    let in_key = entry.0.as_str().unwrap();
+    if in_key == SAD_YAML_TYPE {
+        let type_in = entry.1.as_str().unwrap();
+        if let Some(s) = JUMP_TABLE.get(type_in) {
+            s(in_yaml)
+        } else {
+            default_other(in_yaml)
+        }
     } else {
-        default(in_yaml)
+        Err(SadTreeError::ExpectedTypeKeyError(in_key.to_string()))
     }
 }
 
