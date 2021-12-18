@@ -120,6 +120,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             _ => unreachable!(),
         }
+    } else {
+        SadSysOutput::new(deserialize_result).write()
     }
 
     Ok(())

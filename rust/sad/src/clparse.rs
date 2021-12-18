@@ -10,7 +10,6 @@ pub fn parse_command_line() -> ArgMatches<'static> {
     App::new(crate_name!())
         .about(crate_description!())
         .version(crate_version!())
-        // .setting(AppSettings::SubcommandRequiredElseHelp)
         .setting(AppSettings::ArgRequiredElseHelp)
         .arg({
             let arg = Arg::with_name("config_file")
@@ -76,19 +75,18 @@ pub fn parse_command_line() -> ArgMatches<'static> {
             Arg::with_name("output")
                 .long("output")
                 .short("o")
-                .global(true)
                 .takes_value(true)
                 .possible_values(&["csv", "excel", "stdout"])
-                .default_value("stdout")
+                .requires_ifs(&[("excel", "filename"), ("csv", "filename")])
+                // .default_value("stdout")
                 .help("Direct output to file"),
         )
         .arg(
             Arg::with_name("filename")
                 .long("filename")
                 .short("f")
-                .global(true)
                 .takes_value(true)
-                .required_ifs(&[("output", "excel"), ("output", "csv")])
+                .requires("output")
                 .help("Filename for '-o excel' or '-o csv' output"),
         )
         .subcommand(App::new("account").about("Deserialize single account"))
@@ -101,16 +99,16 @@ mod tests {
     use clap::ErrorKind;
 
     use super::*;
-    #[test]
-    fn test_requiredifs_options_without_file_fail() {
-        let res = App::new("prog")
+    fn argsetup(faux_cmd_line: Vec<&str>) -> Result<ArgMatches, clap::Error> {
+        App::new("prog")
             .arg(
                 Arg::with_name("output")
                     .long("output")
                     .short("o")
                     .takes_value(true)
                     .possible_values(&["csv", "excel", "stdout"])
-                    .default_value("stdout")
+                    .requires_ifs(&[("excel", "filename"), ("csv", "filename")])
+                    // .default_value("stdout")
                     .help("Direct output to file"),
             )
             .arg(
@@ -118,82 +116,26 @@ mod tests {
                     .long("filename")
                     .short("f")
                     .takes_value(true)
-                    .required_ifs(&[("output", "excel"), ("output", "csv")])
+                    .requires("output")
                     .help("Filename for '-o excel' or '-o csv' output"),
             )
-            .get_matches_from_safe(vec!["prog", "-o", "excel"]);
-        assert!(res.is_err()); // We  used -o excel so -f <filename> is required
-        assert_eq!(res.unwrap_err().kind, ErrorKind::MissingRequiredArgument);
+            .get_matches_from_safe(faux_cmd_line)
+    }
+
+    #[test]
+    fn test_requiredifs_options_without_output_should_pass() {
+        let res = argsetup(vec!["prog", "-o", "excel", "-f", "filename"]);
+        assert!(res.is_ok());
     }
     #[test]
     fn test_requiredifs_options_without_output_should_fail() {
-        let res = App::new("prog")
-            .arg(
-                Arg::with_name("output")
-                    .long("output")
-                    .short("o")
-                    .takes_value(true)
-                    .possible_values(&["csv", "excel", "stdout"])
-                    .default_value("stdout")
-                    .help("Direct output to file"),
-            )
-            .arg(
-                Arg::with_name("filename")
-                    .long("filename")
-                    .short("f")
-                    .takes_value(true)
-                    .required_ifs(&[("output", "excel"), ("output", "csv")])
-                    .help("Filename for '-o excel' or '-o csv' output"),
-            )
-            .get_matches_from_safe(vec!["prog", "-f", "filename"]);
+        let res = argsetup(vec!["prog", "-f", "filename"]);
         assert!(res.is_err()); // We  used -o excel so -f <filename> is required
         assert_eq!(res.unwrap_err().kind, ErrorKind::MissingRequiredArgument);
     }
     #[test]
     fn test_requiresif_options_without_file_should_fail() {
-        let res = App::new("prog")
-            .arg(
-                Arg::with_name("output")
-                    .long("output")
-                    .short("o")
-                    .takes_value(true)
-                    .possible_values(&["csv", "excel", "stdout"])
-                    .default_value("stdout")
-                    .help("Direct output to file"),
-            )
-            .arg(
-                Arg::with_name("filename")
-                    .long("filename")
-                    .short("f")
-                    .takes_value(true)
-                    .requires_ifs(&[("output", "excel"), ("output", "csv")])
-                    .help("Filename for '-o excel' or '-o csv' output"),
-            )
-            .get_matches_from_safe(vec!["prog", "-o", "excel"]);
-        assert!(res.is_err()); // We  used -o excel so -f <filename> is required
-        assert_eq!(res.unwrap_err().kind, ErrorKind::MissingRequiredArgument);
-    }
-    #[test]
-    fn test_requiresif_options_without_output_should_fail() {
-        let res = App::new("prog")
-            .arg(
-                Arg::with_name("output")
-                    .long("output")
-                    .short("o")
-                    .takes_value(true)
-                    .possible_values(&["csv", "excel", "stdout"])
-                    .default_value("stdout")
-                    .help("Direct output to file"),
-            )
-            .arg(
-                Arg::with_name("filename")
-                    .long("filename")
-                    .short("f")
-                    .takes_value(true)
-                    .requires_ifs(&[("output", "excel"), ("output", "csv")])
-                    .help("Filename for '-o excel' or '-o csv' output"),
-            )
-            .get_matches_from_safe(vec!["prog", "-f", "somefile"]);
+        let res = argsetup(vec!["prog", "-o", "excel"]);
         assert!(res.is_err()); // We  used -o excel so -f <filename> is required
         assert_eq!(res.unwrap_err().kind, ErrorKind::MissingRequiredArgument);
     }
