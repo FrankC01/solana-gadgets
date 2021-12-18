@@ -18,10 +18,10 @@
             "program": "src/sad.py",
             "args": [
                 "account",
-                "-d",
-                "../../samples/yamldecls/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml",
-                "-k",
-                "../../samples/keys/user1_account.json"
+                "-s",
+                "user1",
+                "-u",
+                "devnet"
             ],
             "console": "integratedTerminal"
         }
