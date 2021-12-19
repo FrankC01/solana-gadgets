@@ -42,12 +42,20 @@
                 "account",
                 "-d",
                 "../samples/yamldecls/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml",
-                "-k",
-                "../samples/keys/user2_account.json",
+                // "-k",
+                // "../samples/keys/user2_account.json",
+                "-p",
+                "A94wMjV54C8f8wn7zL8TxNCdNiGoq7XSN7vWGrtd4vwU",
+                // "-s",
+                // "user2",
+                // "-o",
+                // "stdout",
+                "-o",
+                "excel",
                 // "-o",
                 // "csv",
-                // "-f",
-                // "~/somefile"
+                "-f",
+                "~/somefile"
             ],
             "cwd": "${workspaceFolder}"
         },
@@ -71,7 +79,11 @@
                 "-d",
                 "../samples/yamldecls/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml",
                 "-p",
-                "SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv"
+                "SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv",
+                "-o",
+                "excel",
+                "-f",
+                "~/somefile"
             ],
             "cwd": "${workspaceFolder}"
         },

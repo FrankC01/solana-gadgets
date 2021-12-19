@@ -7,4 +7,4 @@ This is brand spanking new that has yet to achieve structure let alone anything 
 Folder | Gadget | Status
 ------ | ------ | ------
 python | [sad](python/sad/README.md) | working
-rust   | [sad](rust/sad/README.md)   | Stuck on dynamic struc recreation
+rust   | [sad](rust/sad/README.md)   | working

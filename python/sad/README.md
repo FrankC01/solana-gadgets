@@ -22,7 +22,7 @@ src/sad.py --help
 ```
 ## Sample Examples
 
-This [Program](https://github.com/hashblock/solana-cli-program-template) has been loaded into Solana's 'devnet'
+The Sample [Program](https://github.com/hashblock/solana-cli-program-template) has been loaded into Solana's 'devnet'
 
 Both of the user accounts ('user1', 'user2') as well as the Programs keys have been copied to the `../samples/keys` folder
 The data descriptor file for the Program account owned data is provided in the `../samples/yamldecls` folder

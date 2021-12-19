@@ -1,5 +1,7 @@
 //! @brief Main entry poiint for CLI
 
+use clparse::get_target_publickey;
+
 use {
     desertree::Deseriaizer,
     gadgets_common::load_yaml_file,
@@ -7,13 +9,7 @@ use {
     solana_clap_utils::{input_validators::normalize_to_url_if_moniker, keypair::DefaultSigner},
     solana_client::rpc_client::RpcClient,
     solana_remote_wallet::remote_wallet::RemoteWalletManager,
-    solana_sdk::{
-        commitment_config::CommitmentConfig,
-        pubkey::Pubkey,
-        signature::{read_keypair_file, Signer},
-    },
-    std::path::Path,
-    std::str::FromStr,
+    solana_sdk::{commitment_config::CommitmentConfig, signature::Signer},
     std::{process::exit, sync::Arc},
 };
 
@@ -71,58 +67,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("JSON RPC URL: {}", config.json_rpc_url);
     }
     let rpc_client = RpcClient::new(config.json_rpc_url.clone());
-    // Get the deserialization descriptor
-    let indecl = if let Some(ind) = matches.value_of("decl") {
-        load_yaml_file(ind).unwrap_or_else(|err| {
-            eprintln!("File error: On {} {}", ind, err);
-            exit(1)
-        })
-    } else {
-        eprintln!("Requires -d or --declfile argument");
-        exit(1);
-    };
+
+    // Arguments specific to deserialization
 
     // Setup the account or program public key
-    let target_pubkey = if matches.is_present("pkstr") {
-        Pubkey::from_str(matches.value_of("pkstr").unwrap())?
-    } else {
-        let kp = read_keypair_file(Path::new(matches.value_of("keypair").unwrap()))?;
-        kp.pubkey()
-    };
+    let target_pubkey = get_target_publickey(matches).unwrap();
+
+    // Get the deserialization descriptor
+    let descriptor_file_name = matches.value_of("decl").unwrap();
+    let indecl = load_yaml_file(descriptor_file_name).unwrap_or_else(|err| {
+        eprintln!("File error: On {} {}", descriptor_file_name, err);
+        exit(1);
+    });
 
     // Setup the deserialization tree
     let destree = Deseriaizer::new(&indecl[0]);
-    let deserialize_result = match (sub_command, sub_matches) {
-        ("account", Some(_)) => solq::deserialize_account(&rpc_client, &target_pubkey, &destree)?,
-        ("program", Some(_)) => {
-            solq::deserialize_program_accounts(&rpc_client, &target_pubkey, &destree)?
-        }
+
+    // Get deserialization results
+    let deserialize_result = match sub_command {
+        "account" => solq::deserialize_account(&rpc_client, &target_pubkey, &destree)?,
+        "program" => solq::deserialize_program_accounts(&rpc_client, &target_pubkey, &destree)?,
         _ => unreachable!(),
     };
-    // Check for output or default to pretty print
-    if matches.is_present("output") {
-        match matches.value_of("output").unwrap() {
-            "excel" => {
-                SadExcelOutput::new(deserialize_result, matches.value_of("filename").unwrap())
-                    .write()
-            }
-            "csv" => {
-                SadCsvOutput::new(deserialize_result, matches.value_of("filename").unwrap()).write()
-            }
-            "stdout" => {
-                if matches.is_present("filename") {
-                    println!(
-                        "'--filename {}' argument ignored for screen output",
-                        matches.value_of("filename").unwrap()
-                    );
-                }
-                SadSysOutput::new(deserialize_result).write()
-            }
-            _ => unreachable!(),
-        }
-    } else {
-        SadSysOutput::new(deserialize_result).write()
-    }
 
+    // Check for output or default to pretty print
+    match matches.value_of("output").unwrap() {
+        "excel" => {
+            SadExcelOutput::new(deserialize_result, matches.value_of("filename").unwrap()).write()
+        }
+        "csv" => {
+            SadCsvOutput::new(deserialize_result, matches.value_of("filename").unwrap()).write()
+        }
+        "stdout" => SadSysOutput::new(deserialize_result).write(),
+        _ => unreachable!(),
+    };
     Ok(())
 }
