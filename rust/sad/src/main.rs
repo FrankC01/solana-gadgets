@@ -89,7 +89,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "program" => solq::deserialize_program_accounts(&rpc_client, &target_pubkey, &destree)?,
         _ => unreachable!(),
     };
-
+    println!("{:?}", destree);
     // Check for output or default to pretty print
     match matches.value_of("output").unwrap() {
         "excel" => {

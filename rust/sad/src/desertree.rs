@@ -3,6 +3,8 @@
 //! from YAML declaration and then walking said tree to deserialize
 //! input vector of bytes that come from a program owned account data
 
+use yaml_rust::YamlLoader;
+
 use {
     crate::{
         errors::{SadTreeError, SadTreeResult},
@@ -73,7 +75,7 @@ impl SadNamedField {
         let desc = &in_yaml[SAD_YAML_DESCRIPTOR];
         let in_name = desc[SAD_YAML_NAME].as_str().unwrap();
         let mut array = Vec::<Box<dyn Node>>::new();
-        array.push(parse(desc).unwrap());
+        array.push(parse(desc)?);
         Ok(Box::new(SadNamedField {
             sad_field_name: String::from(in_name),
             sad_value_type: String::from(SAD_YAML_DESCRIPTOR),
@@ -451,20 +453,29 @@ lazy_static! {
     };
 }
 
+lazy_static! {
+    static ref SAD_TYPE_JSON: Vec<Yaml> =
+        YamlLoader::load_from_str(&format!("{}", SAD_YAML_TYPE)).unwrap();
+    static ref SAD_JUMP_OTHER: fn(&Yaml) -> Result<Box<dyn Node>, SadTreeError> =
+        *JUMP_TABLE.get("other").unwrap();
+}
+
 /// Dispatches YAML parse Node types
 fn parse(in_yaml: &Yaml) -> Result<Box<dyn Node>, SadTreeError> {
-    let default_other = JUMP_TABLE.get("other").unwrap();
-    let entry = in_yaml.as_hash().unwrap().front().unwrap();
-    let in_key = entry.0.as_str().unwrap();
-    if in_key == SAD_YAML_TYPE {
-        let type_in = entry.1.as_str().unwrap();
-        if let Some(s) = JUMP_TABLE.get(type_in) {
+    if let Some(in_type_key) = &mut in_yaml
+        .as_hash()
+        .unwrap()
+        .get(SAD_TYPE_JSON.first().unwrap())
+    {
+        if let Some(s) = JUMP_TABLE.get(in_type_key.as_str().unwrap()) {
             s(in_yaml)
         } else {
-            default_other(in_yaml)
+            SAD_JUMP_OTHER(in_yaml)
         }
     } else {
-        Err(SadTreeError::ExpectedTypeKeyError(in_key.to_string()))
+        Err(SadTreeError::ExpectedTypeKeyError(
+            SAD_YAML_TYPE.to_string(),
+        ))
     }
 }
 
@@ -525,6 +536,12 @@ mod tests {
             assert!(sl.is_ok());
             println!("{:?}", sl);
         }
+    }
+
+    #[test]
+    fn test_to_string() {
+        let docs = YamlLoader::load_from_str(&format!("{}", SAD_YAML_TYPE)).unwrap();
+        println!("{:?}", docs);
     }
 
     #[test]

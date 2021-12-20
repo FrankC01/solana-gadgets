@@ -79,8 +79,8 @@ impl SadSysOutput {
                         *level += 1;
                         self.write_hashmap_keyvalue(nf, level);
                         *level -= 1;
-                        println!("{:indent$}}}", "", indent = *level as usize);
                     }
+                    println!("{:indent$}}}", "", indent = *level as usize);
                 }
                 _ => unreachable!(),
             }
