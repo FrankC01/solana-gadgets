@@ -57,9 +57,43 @@ structure:
         - type: NamedField
           descriptor:
             name: name
-            type: String
+            contains:
+              type: String
         - type: NamedField
           descriptor:
             name: age
-            type: U32
+            contains:
+              type: U32
+...
+---
+structure2:
+  - acstruct2:
+      type: CStruct
+      fields:
+        - type: NamedField
+          descriptor:
+            name: name
+            contains:
+              type: String
+        - type: NamedField
+          descriptor:
+            name: ages
+            contains:
+              type: Vec
+              contains:
+                - type: U32
+...
+---
+vector_c:
+  - avecofvec:
+      type: Vec
+      contains:
+        - type: Vec
+          contains:
+            - type: String
+...
+---
+pubkey:
+  - apubkey:
+      type: PublicKey
 ...

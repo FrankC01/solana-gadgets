@@ -10,8 +10,8 @@ arrayref = "0.3.6"
 base64 = "0.13.0"
 borsh = "0.9.1"
 clap = "2.34.0"
+downcast-rs = "1.2.0"
 gadgets-common = {version = "0.1.0", path = "../gadgets-common"}
-
 lazy_static = "1.4.0"
 linked-hash-map = "0.5.3"
 solana-clap-utils = "1.8.11"

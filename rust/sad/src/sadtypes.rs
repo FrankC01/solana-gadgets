@@ -2,6 +2,8 @@
 
 use std::any::Any;
 
+use solana_sdk::pubkey::Pubkey;
+
 use {
     borsh::BorshDeserialize,
     lazy_static::*,
@@ -49,6 +51,8 @@ pub enum SadValue {
     CStruct(Vec<SadValue>),
     #[strum(props(Type = "Compound"))]
     NamedField(Vec<SadValue>),
+    #[strum(props(Type = "Compound"))]
+    PublicKey(Pubkey),
 }
 
 pub fn is_sadvalue_type(in_str: &str) -> bool {
