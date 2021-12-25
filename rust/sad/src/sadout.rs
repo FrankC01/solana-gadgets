@@ -1,15 +1,63 @@
 //! @brief sad outputs
 
+use solana_sdk::account::ReadableAccount;
+use std::fs::OpenOptions;
+
 use crate::{
+    errors::{SadAppErrorType, SadApplicationResult},
     sadtypes::{from_scalar_value_for, is_sadtype_scalar, is_simple_compound, SadValue},
     solq::DeserializationResult,
 };
 
+/// Retrieve the hashmap 'types' values
+fn get_data_keyvalue(keyvalue: &Vec<SadValue>, collect: &mut Vec<String>) {
+    let key = match &keyvalue[0] {
+        SadValue::String(s) => s,
+        _ => unreachable!(),
+    };
+    collect.push(key.to_string());
+    get_data(&keyvalue[1], collect);
+}
+
+fn get_data(value: &SadValue, collect: &mut Vec<String>) {
+    if is_sadtype_scalar(value) {
+        collect.push(from_scalar_value_for(value))
+    } else if is_simple_compound(value) {
+        match value {
+            SadValue::Vec(item) => {
+                for vi in item {
+                    get_data(vi, collect)
+                }
+            }
+            SadValue::Tuple(item) => {
+                for vi in item {
+                    get_data(vi, collect)
+                }
+            }
+            SadValue::CStruct(item) => {
+                for nf in item {
+                    get_data(nf, collect)
+                }
+            }
+            SadValue::NamedField(item) => get_data_keyvalue(item, collect),
+            _ => unreachable!(),
+        }
+    } else {
+        match value {
+            SadValue::HashMap(item) => {
+                for nf in item {
+                    get_data_keyvalue(nf, collect)
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+}
 /// Simple trait for
 pub trait SadOutput: std::fmt::Debug {
     /// Clone of the inbound yaml sad 'type'
     fn deserialization_result(&self) -> &DeserializationResult;
-    fn write(&self);
+    fn write(&self) -> SadApplicationResult<()>;
 }
 
 /// Pretty prints output to sysout
@@ -89,13 +137,14 @@ impl SadSysOutput {
 }
 
 impl SadOutput for SadSysOutput {
-    fn write(&self) {
+    fn write(&self) -> SadApplicationResult<()> {
         let mut indent = 0;
         for blocks in self.deserialization_result().context_vec() {
             for sv in blocks.deserialize_list() {
                 self.write_type(sv, &mut indent);
             }
         }
+        Ok(())
     }
 
     fn deserialization_result(&self) -> &DeserializationResult {
@@ -107,25 +156,32 @@ impl SadOutput for SadSysOutput {
 #[derive(Debug)]
 pub struct SadExcelOutput {
     dresult: DeserializationResult,
+    ddecl: Vec<(String, Vec<String>)>,
     file_name: String,
 }
 
 impl SadExcelOutput {
-    pub fn new(data: DeserializationResult, out_file: &str) -> Self {
+    pub fn new(
+        data: DeserializationResult,
+        header_decl: Vec<(String, Vec<String>)>,
+        out_file: &str,
+    ) -> Self {
         Self {
             dresult: data,
+            ddecl: header_decl,
             file_name: out_file.to_string(),
         }
     }
 }
 
 impl SadOutput for SadExcelOutput {
-    fn write(&self) {
+    fn write(&self) -> SadApplicationResult<()> {
         println!(
             "Writing to EXCEL {} \n {:?}",
             self.file_name,
             self.deserialization_result()
         );
+        Ok(())
     }
 
     fn deserialization_result(&self) -> &DeserializationResult {
@@ -137,25 +193,68 @@ impl SadOutput for SadExcelOutput {
 #[derive(Debug)]
 pub struct SadCsvOutput {
     dresult: DeserializationResult,
+    ddecl: Vec<(String, Vec<String>)>,
     file_name: String,
 }
 
 impl SadCsvOutput {
-    pub fn new(data: DeserializationResult, out_file: &str) -> Self {
+    pub fn new(
+        data: DeserializationResult,
+        header_decl: Vec<(String, Vec<String>)>,
+        out_file: &str,
+    ) -> Self {
         Self {
             dresult: data,
+            ddecl: header_decl,
             file_name: out_file.to_string(),
         }
     }
 }
 
 impl SadOutput for SadCsvOutput {
-    fn write(&self) {
-        println!(
-            "Writing to CSV {} \n {:?}",
-            self.file_name,
-            self.deserialization_result()
-        );
+    fn write(&self) -> SadApplicationResult<()> {
+        let fpath = std::path::Path::new(&self.file_name);
+        // println!("{:?}", fpath.canonicalize()?);
+        let fw = match fpath.exists() {
+            true => OpenOptions::new().append(true).open(fpath).unwrap(),
+            false => OpenOptions::new()
+                .append(true)
+                .create_new(true)
+                .open(fpath)
+                .unwrap(),
+        };
+        let mut wtr = csv::Writer::from_writer(fw);
+        let mut out_rows = Vec::<Vec<String>>::new();
+        let mut max_len = 0usize;
+        for c in self.deserialization_result().context_vec() {
+            let mut out_row = Vec::<String>::new();
+            out_row.push(c.pubkey().to_string());
+            out_row.push(c.account().owner().to_string());
+            for d in c.deserialize_list() {
+                get_data(d, &mut out_row)
+            }
+            // Get maximum size
+            if out_row.len() > max_len {
+                max_len = out_row.len()
+            }
+
+            out_rows.push(out_row)
+        }
+        // Set equal row lengths and write record
+        for r in out_rows.iter_mut() {
+            let diff = max_len - r.len();
+            if diff != 0 {
+                for _ in 0..diff {
+                    r.push(String::new())
+                }
+            }
+            if r.len() != max_len {
+                return Err(SadAppErrorType::InconsistentRowLength(max_len, r.len()));
+            }
+            wtr.write_record(r).unwrap();
+            wtr.flush().unwrap();
+        }
+        Ok(())
     }
 
     fn deserialization_result(&self) -> &DeserializationResult {

@@ -38,5 +38,12 @@ pub enum SadAccountErrorType {
     NotProgramKeyError,
 }
 
+#[derive(Error, Debug)]
+pub enum SadAppErrorType {
+    #[error("Row expected {0} elements. found {1}")]
+    InconsistentRowLength(usize, usize),
+}
+
 pub type SadTreeResult<T> = std::result::Result<T, SadTreeError>;
 pub type SadAccountResult<T> = std::result::Result<T, SadAccountErrorType>;
+pub type SadApplicationResult<T> = std::result::Result<T, SadAppErrorType>;

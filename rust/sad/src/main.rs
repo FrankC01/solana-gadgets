@@ -1,9 +1,8 @@
 //! @brief Main entry poiint for CLI
 
-use clparse::get_target_publickey;
-
 use {
-    desertree::Deseriaizer,
+    clparse::get_target_publickey,
+    desertree::{deser_tree_decls, Deseriaizer},
     gadgets_common::load_yaml_file,
     sadout::{SadCsvOutput, SadExcelOutput, SadOutput, SadSysOutput},
     solana_clap_utils::{input_validators::normalize_to_url_if_moniker, keypair::DefaultSigner},
@@ -82,6 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Setup the deserialization tree
     let destree = Deseriaizer::new(&indecl[0]);
+    let desdesc = deser_tree_decls(destree.tree());
 
     // Get deserialization results
     let deserialize_result = match sub_command {
@@ -89,15 +89,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "program" => solq::deserialize_program_accounts(&rpc_client, &target_pubkey, &destree)?,
         _ => unreachable!(),
     };
-    println!("{:?}", destree);
+    // println!("{:?}", destree);
     // Check for output or default to pretty print
     match matches.value_of("output").unwrap() {
-        "excel" => {
-            SadExcelOutput::new(deserialize_result, matches.value_of("filename").unwrap()).write()
-        }
-        "csv" => {
-            SadCsvOutput::new(deserialize_result, matches.value_of("filename").unwrap()).write()
-        }
+        "excel" => SadExcelOutput::new(
+            deserialize_result,
+            desdesc,
+            matches.value_of("filename").unwrap(),
+        )
+        .write(),
+        "csv" => SadCsvOutput::new(
+            deserialize_result,
+            desdesc,
+            matches.value_of("filename").unwrap(),
+        )
+        .write(),
         "stdout" => SadSysOutput::new(deserialize_result).write(),
         _ => unreachable!(),
     };

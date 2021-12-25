@@ -457,6 +457,7 @@ impl SadTree {
                     Yaml::Array(hlobjects) => {
                         for hl in hlobjects {
                             let (varname, h1_value) = hl.as_hash().unwrap().front().unwrap();
+
                             vars.push(varname.as_str().unwrap().to_string());
                             array.push(parse(h1_value).unwrap());
                         }
@@ -517,7 +518,7 @@ impl<'a> Deseriaizer<'a> {
         self.tree().deser(data, &mut hm);
         Ok(hm)
     }
-    fn tree(&self) -> &SadTree {
+    pub fn tree(&self) -> &SadTree {
         &self.sad_tree
     }
 }
@@ -539,6 +540,67 @@ fn parse(in_yaml: &Yaml) -> Result<Box<dyn Node>, SadTreeError> {
             SAD_YAML_TYPE.to_string(),
         ))
     }
+}
+
+fn deser_nodes(node: &Box<dyn Node>, collect: &mut Vec<String>) {
+    match node.decl_type().as_str() {
+        "length_prefix" => {
+            let lp = node.downcast_ref::<SadLengthPrefix>().unwrap();
+            collect.push(lp.length_type().to_string());
+            for c in lp.children() {
+                deser_nodes(c, collect)
+            }
+        }
+        "HashMap" => {
+            let lp = node.downcast_ref::<SadHashMap>().unwrap();
+            collect.push(lp.decl_type().to_string());
+            for c in lp.children() {
+                deser_nodes(c, collect)
+            }
+        }
+        "Vec" => {
+            let lp = node.downcast_ref::<SadVector>().unwrap();
+            collect.push(lp.decl_type().to_string());
+            for c in lp.children() {
+                deser_nodes(c, collect)
+            }
+        }
+        "Tuple" => {
+            let lp = node.downcast_ref::<SadTuple>().unwrap();
+            collect.push(lp.decl_type().to_string());
+            for c in lp.children() {
+                deser_nodes(c, collect)
+            }
+        }
+        "CStruct" => {
+            let lp = node.downcast_ref::<SadStructure>().unwrap();
+            collect.push(lp.decl_type().to_string());
+            for c in lp.children() {
+                deser_nodes(c, collect)
+            }
+        }
+        "NamedField" => {
+            let lp = node.downcast_ref::<SadNamedField>().unwrap();
+            collect.push(lp.name().to_string());
+            for c in lp.children() {
+                deser_nodes(c, collect)
+            }
+        }
+        _ => collect.push(node.decl_type().to_string()),
+    }
+}
+
+pub fn deser_tree_decls(tree: &SadTree) -> Vec<(String, Vec<String>)> {
+    let mut collection = Vec::<(String, Vec<String>)>::new();
+    let mut index = 0;
+    for c in tree.children() {
+        let varname = tree.varnames.get(index).unwrap();
+        let mut cset = Vec::<String>::new();
+        deser_nodes(c, &mut cset);
+        collection.push((varname.to_string(), cset));
+        index += 1;
+    }
+    collection
 }
 
 #[cfg(test)]
@@ -597,9 +659,10 @@ mod tests {
         match node.decl_type().as_str() {
             "length_prefix" => {
                 let lp = node.downcast_ref::<SadLengthPrefix>().unwrap();
-                println!("{:indent$}{}", "", lp.decl_type(), indent = *indent);
+                // println!("{:indent$}{}", "", lp.decl_type(), indent = *indent);
+                let y = lp.length_type();
                 *indent += 2;
-                println!("{:indent$}{}", "", lp.length_type(), indent = *indent);
+                println!("{:indent$}{}", "", y, indent = *indent);
                 for c in lp.children() {
                     walkage_print(c, indent)
                 }
@@ -680,7 +743,8 @@ mod tests {
         let pacv = decode(pacc).unwrap();
         let result = get_sample_yaml();
         let desc = Deseriaizer::new(&result[0]);
-        walk_tree_print(desc.tree());
+        println!("{:?}", deser_tree_decls(desc.tree()));
+        // walk_tree_print(desc.tree());
         let deserialize_vector = desc.deser(&mut pacv.as_slice());
         println!("{:?}", deserialize_vector.unwrap());
     }
@@ -725,7 +789,8 @@ mod tests {
         let result = get_runner_yaml();
         for body in result {
             let desc = Deseriaizer::new(&body);
-            walk_tree_print(desc.tree());
+            println!("{:?}", deser_tree_decls(desc.tree()));
+            // walk_tree_print(desc.tree());
         }
     }
 
