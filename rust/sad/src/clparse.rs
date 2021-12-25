@@ -92,9 +92,9 @@ pub fn parse_command_line() -> ArgMatches<'static> {
                 .short("o")
                 .global(true)
                 .takes_value(true)
-                .possible_values(&["csv", "excel", "stdout"])
+                .possible_values(&["csv", "stdout"])
                 .default_value("stdout")
-                .requires_ifs(&[("excel", "filename"), ("csv", "filename")])
+                .requires_ifs(&[("csv", "filename")])
                 .help("Direct output to file"),
         )
         .arg(

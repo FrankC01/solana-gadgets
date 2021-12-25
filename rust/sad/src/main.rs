@@ -4,7 +4,7 @@ use {
     clparse::get_target_publickey,
     desertree::{deser_tree_decls, Deseriaizer},
     gadgets_common::load_yaml_file,
-    sadout::{SadCsvOutput, SadExcelOutput, SadOutput, SadSysOutput},
+    sadout::{SadCsvOutput, SadOutput, SadSysOutput},
     solana_clap_utils::{input_validators::normalize_to_url_if_moniker, keypair::DefaultSigner},
     solana_client::rpc_client::RpcClient,
     solana_remote_wallet::remote_wallet::RemoteWalletManager,
@@ -89,22 +89,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "program" => solq::deserialize_program_accounts(&rpc_client, &target_pubkey, &destree)?,
         _ => unreachable!(),
     };
-    // println!("{:?}", destree);
     // Check for output or default to pretty print
     match matches.value_of("output").unwrap() {
-        "excel" => SadExcelOutput::new(
-            deserialize_result,
-            desdesc,
-            matches.value_of("filename").unwrap(),
-        )
-        .write(),
         "csv" => SadCsvOutput::new(
             deserialize_result,
             desdesc,
             matches.value_of("filename").unwrap(),
         )
-        .write(),
-        "stdout" => SadSysOutput::new(deserialize_result).write(),
+        .write()?,
+        "stdout" => SadSysOutput::new(deserialize_result).write()?,
         _ => unreachable!(),
     };
     Ok(())

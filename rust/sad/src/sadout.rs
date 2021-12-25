@@ -152,43 +152,6 @@ impl SadOutput for SadSysOutput {
     }
 }
 
-/// Writes output to Excel file
-#[derive(Debug)]
-pub struct SadExcelOutput {
-    dresult: DeserializationResult,
-    ddecl: Vec<(String, Vec<String>)>,
-    file_name: String,
-}
-
-impl SadExcelOutput {
-    pub fn new(
-        data: DeserializationResult,
-        header_decl: Vec<(String, Vec<String>)>,
-        out_file: &str,
-    ) -> Self {
-        Self {
-            dresult: data,
-            ddecl: header_decl,
-            file_name: out_file.to_string(),
-        }
-    }
-}
-
-impl SadOutput for SadExcelOutput {
-    fn write(&self) -> SadApplicationResult<()> {
-        println!(
-            "Writing to EXCEL {} \n {:?}",
-            self.file_name,
-            self.deserialization_result()
-        );
-        Ok(())
-    }
-
-    fn deserialization_result(&self) -> &DeserializationResult {
-        &self.dresult
-    }
-}
-
 /// Writes output to CSV file
 #[derive(Debug)]
 pub struct SadCsvOutput {
