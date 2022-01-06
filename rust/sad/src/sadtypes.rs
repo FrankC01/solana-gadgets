@@ -1,7 +1,5 @@
 //! @brief Deserialization Support
 
-use std::any::Any;
-
 use solana_sdk::pubkey::Pubkey;
 
 use {
@@ -51,7 +49,7 @@ pub enum SadValue {
     CStruct(Vec<SadValue>),
     #[strum(props(Type = "Compound"))]
     NamedField(Vec<SadValue>),
-    #[strum(props(Type = "Compound"))]
+    #[strum(props(Type = "Scalar"))]
     PublicKey(Pubkey),
 }
 
@@ -98,6 +96,7 @@ pub fn from_scalar_value_for(intype: &SadValue) -> String {
         SadValue::I128(item) => item.to_string(),
         SadValue::F32(item) => item.to_string(),
         SadValue::F64(item) => item.to_string(),
+        SadValue::PublicKey(item) => item.to_string(),
         _ => unreachable!(),
     }
 }
@@ -223,6 +222,14 @@ impl SadElement for f64 {
     }
 }
 
+impl SadElement for Pubkey {
+    fn deser(buf: &mut &[u8]) -> SadValue {
+        let st = Pubkey::try_from_slice(buf).unwrap();
+        *buf = &buf[32..];
+        SadValue::PublicKey(st)
+    }
+}
+
 lazy_static! {
     static ref DESER: HashMap<String, fn(&mut &[u8]) -> SadValue> = {
         let mut deser_table = HashMap::<String, fn(&mut &[u8]) -> SadValue>::new();
@@ -240,6 +247,7 @@ lazy_static! {
         deser_table.insert("I128".to_string(), <i128 as SadElement>::deser);
         deser_table.insert("F32".to_string(), <f32 as SadElement>::deser);
         deser_table.insert("F64".to_string(), <f64 as SadElement>::deser);
+        deser_table.insert("PublicKey".to_string(), <Pubkey as SadElement>::deser);
         deser_table
     };
 }

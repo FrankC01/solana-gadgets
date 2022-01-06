@@ -1,11 +1,11 @@
-/// solana-gadgets common resuable modules
-/// Includes
-///
+///! solana-gadgets common resuable modules
+// Includes
 use std::io::prelude::*;
 use std::{fs::File, io};
 use yaml_rust::yaml::Yaml;
 use yaml_rust::YamlLoader;
 
+/// Loads a yaml file returning a YAML document
 pub fn load_yaml_file(yaml_file: &str) -> Result<Vec<Yaml>, io::Error> {
     let mut file = File::open(yaml_file)?;
     let mut contents = String::new();

@@ -2,11 +2,18 @@
 SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv:
     - initialized:
         type: Bool
-    - size_and_map:
-        type: length_prefix
-        size_type: U32
-        contains:
-          - type: HashMap
-            fields:
-              - type: String
-              - type: String
+    - map_length:
+        type: U32
+    - map:
+        type: HashMap
+        fields:
+          - type: String
+          - type: String
+    # - size_and_map:
+    #     type: length_prefix
+    #     size_type: U32
+    #     contains:
+    #       - type: HashMap
+    #         fields:
+    #           - type: String
+    #           - type: String

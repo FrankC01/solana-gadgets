@@ -2,7 +2,7 @@
 
 use {
     clparse::get_target_publickey,
-    desertree::{deser_tree_decls, Deseriaizer},
+    desertree::Deseriaizer,
     gadgets_common::load_yaml_file,
     sadout::{SadCsvOutput, SadOutput, SadSysOutput},
     solana_clap_utils::{input_validators::normalize_to_url_if_moniker, keypair::DefaultSigner},
@@ -81,7 +81,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Setup the deserialization tree
     let destree = Deseriaizer::new(&indecl[0]);
-    let desdesc = deser_tree_decls(destree.tree());
 
     // Get deserialization results
     let deserialize_result = match sub_command {
@@ -93,7 +92,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match matches.value_of("output").unwrap() {
         "csv" => SadCsvOutput::new(
             deserialize_result,
-            desdesc,
+            destree,
             matches.value_of("filename").unwrap(),
         )
         .write()?,

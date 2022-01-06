@@ -3,8 +3,6 @@
 //! from YAML declaration and then walking said tree to deserialize
 //! input vector of bytes that come from a program owned account data
 
-use solana_sdk::pubkey::Pubkey;
-
 use {
     crate::{
         errors::{SadTreeError, SadTreeResult},
@@ -94,18 +92,14 @@ impl Node for SadLeaf {
 #[derive(Debug)]
 pub struct SadPublicKey {
     sad_value_type: String,
-    children: Vec<Box<dyn Node>>,
 }
 
 impl SadPublicKey {
     fn from_yaml(in_yaml: &Yaml) -> SadTreeResult<Box<dyn Node>> {
         let in_str = in_yaml[SAD_YAML_TYPE].as_str().unwrap();
         if is_sadvalue_type(in_str) {
-            let mut array = Vec::<Box<dyn Node>>::new();
-            array.push(parse(&SAD_PUBKEY_CHILD[0])?);
             Ok(Box::new(SadPublicKey {
                 sad_value_type: String::from(in_str),
-                children: array,
             }))
         } else {
             Err(SadTreeError::UnknownType(String::from(in_str)))
@@ -119,18 +113,7 @@ impl Node for SadPublicKey {
     }
 
     fn deser(&self, data: &mut &[u8], collection: &mut Vec<SadValue>) {
-        // let mut coll = Vec::<SadValue>::new();
-        let pk = Pubkey::try_from_slice(data).unwrap();
-        // coll.push(pk);
-        // for c in &self.children {
-        //     c.deser(data, &mut coll)
-        // }
-        collection.push(SadValue::PublicKey(pk));
-    }
-}
-impl NodeWithChildren for SadPublicKey {
-    fn children(&self) -> &Vec<Box<dyn Node>> {
-        &self.children
+        collection.push(deser_value_for(self.decl_type(), data));
     }
 }
 
@@ -498,26 +481,191 @@ impl Node for SadTree {
     }
 }
 
+#[derive(Debug, PartialEq, Default)]
+struct SadSchemaElement {
+    schema_type: String,
+    scalar: bool,
+    items: Option<Vec<SadSchemaElement>>,
+}
+
+impl SadSchemaElement {
+    pub fn is_scalar(&self) -> bool {
+        self.scalar
+    }
+
+    pub fn item_count(&self) -> usize {
+        if self.items.is_some() {
+            self.items.as_ref().unwrap().len()
+        } else {
+            0
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Default)]
+/// SchemaItem represents a top level entity in the
+/// deserialization YAML. It contains the SadSchemaElements
+struct SadSchemaItem {
+    item_name: String,
+    items: Vec<SadSchemaElement>,
+}
+
+impl SadSchemaItem {
+    pub fn get_name(&self) -> &String {
+        &self.item_name
+    }
+
+    pub fn get_items(&self) -> &Vec<SadSchemaElement> {
+        &self.items
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct SadSchema {
+    item_names: Vec<String>,
+    items: Vec<SadSchemaItem>,
+    genned_header: Vec<String>,
+}
+
+impl SadSchema {
+    pub fn get_items(&self) -> &Vec<SadSchemaItem> {
+        &self.items
+    }
+
+    pub fn get_item_names(&self) -> &Vec<String> {
+        &self.item_names
+    }
+
+    pub fn get_header(&self) -> &Vec<String> {
+        &self.genned_header
+    }
+
+    fn itemize(children: &Vec<Box<dyn Node>>) -> Vec<SadSchemaElement> {
+        let mut items = Vec::<SadSchemaElement>::new();
+        for c in children {
+            SadSchema::schema_item(c, &mut items)
+        }
+        items
+    }
+
+    fn schema_item(node: &Box<dyn Node>, collect: &mut Vec<SadSchemaElement>) {
+        match node.decl_type().as_str() {
+            "length_prefix" => {
+                let lp = node.downcast_ref::<SadLengthPrefix>().unwrap();
+                collect.push(SadSchemaElement {
+                    schema_type: lp.length_type().to_string(),
+                    scalar: false,
+                    items: Some(SadSchema::itemize(lp.children())),
+                })
+            }
+            "HashMap" => {
+                let lp = node.downcast_ref::<SadHashMap>().unwrap();
+                collect.push(SadSchemaElement {
+                    schema_type: lp.decl_type().to_string(),
+                    scalar: false,
+                    items: Some(SadSchema::itemize(lp.children())),
+                })
+            }
+            "Vec" => {
+                let lp = node.downcast_ref::<SadVector>().unwrap();
+                collect.push(SadSchemaElement {
+                    schema_type: lp.decl_type().to_string(),
+                    scalar: false,
+                    items: Some(SadSchema::itemize(lp.children())),
+                })
+            }
+            "Tuple" => {
+                let lp = node.downcast_ref::<SadTuple>().unwrap();
+                collect.push(SadSchemaElement {
+                    schema_type: lp.decl_type().to_string(),
+                    scalar: false,
+                    items: Some(SadSchema::itemize(lp.children())),
+                })
+            }
+            "CStruct" => {
+                let lp = node.downcast_ref::<SadStructure>().unwrap();
+                collect.push(SadSchemaElement {
+                    schema_type: lp.decl_type().to_string(),
+                    scalar: false,
+                    items: Some(SadSchema::itemize(lp.children())),
+                })
+            }
+            "NamedField" => {
+                let lp = node.downcast_ref::<SadNamedField>().unwrap();
+                collect.push(SadSchemaElement {
+                    schema_type: lp.decl_type().to_string(),
+                    scalar: false,
+                    items: Some(SadSchema::itemize(lp.children())),
+                })
+            }
+            _ => collect.push(SadSchemaElement {
+                schema_type: node.decl_type().to_string(),
+                scalar: true,
+                items: None,
+            }),
+        }
+    }
+
+    fn schema_for(name_id: String, node: &Box<dyn Node>) -> SadSchemaItem {
+        let mut ssi = Vec::<SadSchemaElement>::new();
+        SadSchema::schema_item(node, &mut ssi);
+        SadSchemaItem {
+            item_name: name_id,
+            items: ssi,
+        }
+    }
+
+    fn schema(tree: &SadTree) -> SadSchema {
+        let mut vi = Vec::<SadSchemaItem>::new();
+        let mut vn = Vec::<String>::new();
+        let mut gh = Vec::<String>::new();
+        let mut index = 0;
+        for node in tree.children() {
+            let item_name = tree.varnames.get(index).unwrap().to_string();
+            let item = SadSchema::schema_for(item_name.clone(), node);
+            vi.push(item);
+            vn.push(item_name);
+            index += 1;
+        }
+
+        SadSchema {
+            items: vi,
+            item_names: vn,
+            genned_header: gh,
+        }
+    }
+    fn gen_schema(tree: &SadTree) -> SadSchema {
+        SadSchema::schema(tree)
+    }
+}
+
 /// Public struct for interacting deserialization to YAML construct declarations
 #[derive(Debug)]
-pub struct Deseriaizer<'a> {
-    yaml_declaration: &'a Yaml,
+pub struct Deseriaizer {
+    sad_schema: SadSchema,
     sad_tree: SadTree,
 }
 
-impl<'a> Deseriaizer<'a> {
-    pub fn new(in_yaml: &'a Yaml) -> Self {
+impl Deseriaizer {
+    pub fn new(in_yaml: &Yaml) -> Self {
+        let tree = SadTree::new(in_yaml).unwrap();
+        let scm = SadSchema::schema(&tree);
         Self {
-            yaml_declaration: in_yaml,
-            sad_tree: SadTree::new(in_yaml).unwrap(),
+            sad_tree: tree,
+            sad_schema: scm,
         }
     }
+
+    pub fn schema(&self) -> &SadSchema {
+        &self.sad_schema
+    }
+
     pub fn deser(&self, data: &mut &[u8]) -> SadTreeResult<Vec<SadValue>> {
-        // let inbound = data.to_vec();
         let mut hm = Vec::<SadValue>::new();
         self.tree().deser(data, &mut hm);
         Ok(hm)
     }
+
     pub fn tree(&self) -> &SadTree {
         &self.sad_tree
     }
@@ -542,67 +690,6 @@ fn parse(in_yaml: &Yaml) -> Result<Box<dyn Node>, SadTreeError> {
     }
 }
 
-fn deser_nodes(node: &Box<dyn Node>, collect: &mut Vec<String>) {
-    match node.decl_type().as_str() {
-        "length_prefix" => {
-            let lp = node.downcast_ref::<SadLengthPrefix>().unwrap();
-            collect.push(lp.length_type().to_string());
-            for c in lp.children() {
-                deser_nodes(c, collect)
-            }
-        }
-        "HashMap" => {
-            let lp = node.downcast_ref::<SadHashMap>().unwrap();
-            collect.push(lp.decl_type().to_string());
-            for c in lp.children() {
-                deser_nodes(c, collect)
-            }
-        }
-        "Vec" => {
-            let lp = node.downcast_ref::<SadVector>().unwrap();
-            collect.push(lp.decl_type().to_string());
-            for c in lp.children() {
-                deser_nodes(c, collect)
-            }
-        }
-        "Tuple" => {
-            let lp = node.downcast_ref::<SadTuple>().unwrap();
-            collect.push(lp.decl_type().to_string());
-            for c in lp.children() {
-                deser_nodes(c, collect)
-            }
-        }
-        "CStruct" => {
-            let lp = node.downcast_ref::<SadStructure>().unwrap();
-            collect.push(lp.decl_type().to_string());
-            for c in lp.children() {
-                deser_nodes(c, collect)
-            }
-        }
-        "NamedField" => {
-            let lp = node.downcast_ref::<SadNamedField>().unwrap();
-            collect.push(lp.name().to_string());
-            for c in lp.children() {
-                deser_nodes(c, collect)
-            }
-        }
-        _ => collect.push(node.decl_type().to_string()),
-    }
-}
-
-pub fn deser_tree_decls(tree: &SadTree) -> Vec<(String, Vec<String>)> {
-    let mut collection = Vec::<(String, Vec<String>)>::new();
-    let mut index = 0;
-    for c in tree.children() {
-        let varname = tree.varnames.get(index).unwrap();
-        let mut cset = Vec::<String>::new();
-        deser_nodes(c, &mut cset);
-        collection.push((varname.to_string(), cset));
-        index += 1;
-    }
-    collection
-}
-
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
@@ -621,8 +708,6 @@ mod tests {
     const INDEX_VECTOR_U32: usize = 5;
     const INDEX_TUPLE_STRING_U128: usize = 6;
     const INDEX_STRUCT_STRING_U32: usize = 7;
-    const INDEX_STRUCT_STRING_VECTOR_U32: usize = 8;
-    const INDEX_VECTOR_VECTOR_STRING: usize = 9;
     const INDEX_PUBLICKEY: usize = 10;
 
     #[derive(BorshSerialize)]
@@ -655,87 +740,6 @@ mod tests {
         }
     }
 
-    fn walkage_print(node: &Box<dyn Node>, indent: &mut usize) {
-        match node.decl_type().as_str() {
-            "length_prefix" => {
-                let lp = node.downcast_ref::<SadLengthPrefix>().unwrap();
-                // println!("{:indent$}{}", "", lp.decl_type(), indent = *indent);
-                let y = lp.length_type();
-                *indent += 2;
-                println!("{:indent$}{}", "", y, indent = *indent);
-                for c in lp.children() {
-                    walkage_print(c, indent)
-                }
-                *indent -= 2
-            }
-            "HashMap" => {
-                let lp = node.downcast_ref::<SadHashMap>().unwrap();
-                println!("{:indent$}{}", "", lp.decl_type(), indent = *indent);
-                *indent += 2;
-                for c in lp.children() {
-                    walkage_print(c, indent)
-                }
-                *indent -= 2
-            }
-            "Vec" => {
-                let lp = node.downcast_ref::<SadVector>().unwrap();
-                println!("{:indent$}{}", "", lp.decl_type(), indent = *indent);
-                *indent += 2;
-                for c in lp.children() {
-                    walkage_print(c, indent)
-                }
-                *indent -= 2
-            }
-            "Tuple" => {
-                let lp = node.downcast_ref::<SadTuple>().unwrap();
-                println!("{:indent$}{}", "", lp.decl_type(), indent = *indent);
-                *indent += 2;
-                for c in lp.children() {
-                    walkage_print(c, indent)
-                }
-                *indent -= 2
-            }
-            "CStruct" => {
-                let lp = node.downcast_ref::<SadStructure>().unwrap();
-                println!("{:indent$}{}", "", lp.decl_type(), indent = *indent);
-                *indent += 2;
-                for c in lp.children() {
-                    walkage_print(c, indent)
-                }
-                *indent -= 2
-            }
-            "NamedField" => {
-                let lp = node.downcast_ref::<SadNamedField>().unwrap();
-                println!("{:indent$}{}", "", lp.name(), indent = *indent);
-                *indent += 2;
-                for c in lp.children() {
-                    walkage_print(c, indent)
-                }
-                *indent -= 2
-            }
-            _ => println!("{:indent$}{}", "", node.decl_type(), indent = *indent),
-        }
-    }
-
-    fn walk_tree_print(tree: &SadTree) {
-        let mut indent: usize = 0;
-        println!(
-            "{:indent$}{}: {}",
-            "",
-            tree.decl_type(),
-            tree.get_name(),
-            indent = indent
-        );
-
-        let mut index = 0 as usize;
-        for c in tree.children() {
-            let varname = tree.varnames.get(index).unwrap();
-            print!("{}: -> ", varname);
-            index += 1;
-            walkage_print(c, &mut indent);
-            indent = 0
-        }
-    }
     #[test]
     fn test_deserialization_pass() {
         println!("{:?}", std::env::current_dir().unwrap());
@@ -743,8 +747,7 @@ mod tests {
         let pacv = decode(pacc).unwrap();
         let result = get_sample_yaml();
         let desc = Deseriaizer::new(&result[0]);
-        println!("{:?}", deser_tree_decls(desc.tree()));
-        // walk_tree_print(desc.tree());
+        println!("{:?}", desc.schema());
         let deserialize_vector = desc.deser(&mut pacv.as_slice());
         println!("{:?}", deserialize_vector.unwrap());
     }
@@ -789,8 +792,7 @@ mod tests {
         let result = get_runner_yaml();
         for body in result {
             let desc = Deseriaizer::new(&body);
-            println!("{:?}", deser_tree_decls(desc.tree()));
-            // walk_tree_print(desc.tree());
+            println!("{:?}", desc.schema());
         }
     }
 
@@ -851,7 +853,7 @@ mod tests {
         let mhmap = OfTuple("Foo".to_string(), 19u128);
         let result = get_runner_yaml();
         let desc = Deseriaizer::new(&result[INDEX_TUPLE_STRING_U128]);
-        walk_tree_print(desc.tree());
+
         let data = mhmap.try_to_vec().unwrap();
         println!("{:?}", data);
         let deserialize_vector = desc.deser(&mut data.as_slice());
@@ -875,7 +877,7 @@ mod tests {
     fn pubkey_pass() {
         let result = get_runner_yaml();
         let desc = Deseriaizer::new(&result[INDEX_PUBLICKEY]);
-        walk_tree_print(desc.tree());
+
         let pk = Pubkey::from_str("A94wMjV54C8f8wn7zL8TxNCdNiGoq7XSN7vWGrtd4vwU").unwrap();
         let pk_ser = pk.try_to_vec().unwrap();
         println!("{:?}", pk_ser);

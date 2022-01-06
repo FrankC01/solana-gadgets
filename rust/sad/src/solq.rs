@@ -6,6 +6,7 @@ use {
         errors::{SadAccountErrorType, SadAccountResult},
         sadtypes::SadValue,
     },
+    base64::encode,
     solana_client::rpc_client::RpcClient,
     solana_sdk::{
         account::{Account, ReadableAccount},
@@ -136,6 +137,7 @@ pub fn deserialize_program_accounts(
     let solacc = solana_program_accounts(rpc_client, key)?;
     let mut resvec = Vec::<AccountResultContext>::new();
     for acc in solacc {
+        // println!("{:?}", encode(acc.1.data()));
         match destree.deser(&mut acc.1.data()) {
             Ok(res) => resvec.push(AccountResultContext::new(acc.0.clone(), acc.1, res)),
             Err(_) => todo!(),
@@ -215,23 +217,26 @@ mod tests {
         let onekey = Pubkey::from_str("A94wMjV54C8f8wn7zL8TxNCdNiGoq7XSN7vWGrtd4vwU").unwrap();
         let twokey = Pubkey::from_str("5gMsBeLmPkwEKQ1H2AwceAPasXLyZ4tvWGCYR59qf47U").unwrap();
         let yamldecl = load_yaml_file(SCLI).unwrap();
-        let deser =
-            deserialize_program_accounts(&rpc_client, &pubkey, &Deseriaizer::new(&yamldecl[0]))
-                .unwrap();
+        let data_declaration = Deseriaizer::new(&yamldecl[0]);
+        let deser = deserialize_program_accounts(&rpc_client, &pubkey, &data_declaration).unwrap();
         assert_eq!(deser.context_count(), 2);
         assert_eq!(
             deser.account_type(),
             &ResultForKeyType::ProgramAccount(pubkey)
         );
+
         let key_list = [&onekey, &twokey];
         let cvec = deser.context_vec();
         for i in 0..2 {
-            key_list.iter().find(|x| *x == &cvec[i].pubkey());
             assert_eq!(
                 key_list.iter().find(|x| *x == &cvec[i].pubkey()),
                 Some(&cvec[i].pubkey())
             );
-            println!("{:?}", cvec[i].deserialize_list());
+            // println!("{:?}", cvec[i].deserialize_list());
+        }
+        for c in deser.context_vec() {
+            println!("HL Elements {}", c.deserialize_list().len());
+            println!("Data {:?}", c.deserialize_list());
         }
     }
 }

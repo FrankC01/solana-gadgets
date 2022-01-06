@@ -4,6 +4,7 @@ use solana_sdk::account::ReadableAccount;
 use std::fs::OpenOptions;
 
 use crate::{
+    desertree::Deseriaizer,
     errors::{SadAppErrorType, SadApplicationResult},
     sadtypes::{from_scalar_value_for, is_sadtype_scalar, is_simple_compound, SadValue},
     solq::DeserializationResult,
@@ -156,19 +157,15 @@ impl SadOutput for SadSysOutput {
 #[derive(Debug)]
 pub struct SadCsvOutput {
     dresult: DeserializationResult,
-    ddecl: Vec<(String, Vec<String>)>,
+    ddecl: Deseriaizer,
     file_name: String,
 }
 
 impl SadCsvOutput {
-    pub fn new(
-        data: DeserializationResult,
-        header_decl: Vec<(String, Vec<String>)>,
-        out_file: &str,
-    ) -> Self {
+    pub fn new(data: DeserializationResult, decl: Deseriaizer, out_file: &str) -> Self {
         Self {
             dresult: data,
-            ddecl: header_decl,
+            ddecl: decl,
             file_name: out_file.to_string(),
         }
     }
@@ -178,13 +175,16 @@ impl SadOutput for SadCsvOutput {
     fn write(&self) -> SadApplicationResult<()> {
         let fpath = std::path::Path::new(&self.file_name);
         // println!("{:?}", fpath.canonicalize()?);
-        let fw = match fpath.exists() {
-            true => OpenOptions::new().append(true).open(fpath).unwrap(),
-            false => OpenOptions::new()
-                .append(true)
-                .create_new(true)
-                .open(fpath)
-                .unwrap(),
+        let (fw, exists) = match fpath.exists() {
+            true => (OpenOptions::new().append(true).open(fpath).unwrap(), true),
+            false => (
+                OpenOptions::new()
+                    .append(true)
+                    .create_new(true)
+                    .open(fpath)
+                    .unwrap(),
+                false,
+            ),
         };
         let mut wtr = csv::Writer::from_writer(fw);
         let mut out_rows = Vec::<Vec<String>>::new();
@@ -227,14 +227,17 @@ impl SadOutput for SadCsvOutput {
 
 #[cfg(test)]
 mod tests {
+
     use crate::{
         desertree::Deseriaizer,
         sadtypes::{from_scalar_value_for, is_sadtype_scalar, is_simple_compound},
     };
 
     use super::*;
+    use base64::decode;
     use borsh::BorshSerialize;
     use gadgets_common::load_yaml_file;
+    use yaml_rust::Yaml;
 
     const INDEX_STRUCT_STRING_U32: usize = 7;
     #[derive(BorshSerialize)]
@@ -242,6 +245,29 @@ mod tests {
         name: String,
         age: u32,
     }
+    /// vscode changes cwd depending on running test or debugging test
+    fn get_sample_yaml() -> Vec<Yaml> {
+        if std::env::current_dir().unwrap().ends_with("sad") {
+            load_yaml_file(
+                "../../samples/yamldecls/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml",
+            )
+            .unwrap()
+        } else {
+            load_yaml_file("../samples/yamldecls/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml")
+                .unwrap()
+        }
+    }
+    #[test]
+    fn test_deserialization_pass() {
+        let pacc = "AU8AAAADAAAABQAAAEhhcHB5CQAAAE5ldyBZZWFyIQYAAABuZXdLZXkLAAAAQSBuZXcgdmFsdWUGAAAAdHMga2V5DgAAAHRzIGZpcnN0IHZhbHVldCB2YWx1ZTIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
+        let pacv = decode(pacc).unwrap();
+        let result = get_sample_yaml();
+        let desc = Deseriaizer::new(&result[0]);
+        println!("{:?}", desc.schema());
+        let deserialize_vector = desc.deser(&mut pacv.as_slice());
+        println!("{:?}", deserialize_vector.unwrap());
+    }
+
     fn write_hashmap_keyvalue(keyvalue: &Vec<SadValue>, level: &mut u32) {
         let key = match &keyvalue[0] {
             SadValue::String(s) => s,
