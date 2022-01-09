@@ -9,7 +9,7 @@ use {
     strum::{EnumIter, EnumProperty, EnumVariantNames, VariantNames},
 };
 
-#[derive(Debug, EnumIter, EnumVariantNames, EnumProperty)]
+#[derive(Clone, Debug, EnumIter, EnumVariantNames, EnumProperty)]
 pub enum SadValue {
     #[strum(props(Type = "Scalar"))]
     String(String),
@@ -49,6 +49,8 @@ pub enum SadValue {
     CStruct(Vec<SadValue>),
     #[strum(props(Type = "Compound"))]
     NamedField(Vec<SadValue>),
+    #[strum(props(Type = "Compound"))]
+    LengthPrefixed(Vec<SadValue>),
     #[strum(props(Type = "Scalar"))]
     PublicKey(Pubkey),
 }

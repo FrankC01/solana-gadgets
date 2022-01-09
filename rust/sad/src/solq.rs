@@ -176,6 +176,16 @@ mod tests {
     }
 
     #[test]
+    fn test_fetch_pda_pass() {
+        let (_, rpc_client) = get_config_rpcclient().unwrap();
+        // Presume solana-cli-program accounts are created and run either locally or devnet
+        let pubkey = Pubkey::from_str("SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv").unwrap();
+        let pda = Pubkey::create_program_address(&[b"test"], &pubkey).unwrap();
+        println!("PDA PubKey {:?}", pda);
+        println!("{:?}", rpc_client.get_account(&pda));
+    }
+
+    #[test]
     fn test_fetch_singleaccount_pass() {
         let (_, rpc_client) = get_config_rpcclient().unwrap();
         // Presume solana-cli-program accounts are created and run either locally or devnet

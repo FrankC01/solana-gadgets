@@ -20,6 +20,8 @@ pub enum SadTreeError {
     ExpectedTupleFields,
     #[error("Expected CStruct fields")]
     ExpectedCStructFields,
+    #[error("Expected Length Prefix Schema Ancillary Type")]
+    ExpectedLengthSchemaType,
 }
 
 #[derive(Error, Debug)]
