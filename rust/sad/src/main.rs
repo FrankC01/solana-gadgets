@@ -4,7 +4,7 @@ use {
     clparse::get_target_publickey,
     desertree::Deseriaizer,
     gadgets_common::load_yaml_file,
-    sadout::{SadCsvOutput, SadOutput, SadSysOutput},
+    sadout::{SadJsonOutput, SadOutput, SadSysOutput},
     solana_clap_utils::{input_validators::normalize_to_url_if_moniker, keypair::DefaultSigner},
     solana_client::rpc_client::RpcClient,
     solana_remote_wallet::remote_wallet::RemoteWalletManager,
@@ -20,6 +20,7 @@ mod sadout;
 mod sadtypes;
 mod solq;
 
+#[allow(dead_code)]
 struct Config {
     commitment_config: CommitmentConfig,
     default_signer: Box<dyn Signer>,
@@ -90,7 +91,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     // Check for output or default to pretty print
     match matches.value_of("output").unwrap() {
-        "csv" => SadCsvOutput::new(
+        "json" => SadJsonOutput::new(
             deserialize_result,
             destree,
             matches.value_of("filename").unwrap(),

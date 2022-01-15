@@ -1,6 +1,5 @@
 //! @brief sad outputs
 
-use solana_sdk::account::ReadableAccount;
 use std::fs::OpenOptions;
 
 use crate::{
@@ -155,13 +154,13 @@ impl SadOutput for SadSysOutput {
 
 /// Writes output to CSV file
 #[derive(Debug)]
-pub struct SadCsvOutput {
+pub struct SadJsonOutput {
     dresult: DeserializationResult,
     ddecl: Deseriaizer,
     file_name: String,
 }
 
-impl SadCsvOutput {
+impl SadJsonOutput {
     pub fn new(data: DeserializationResult, decl: Deseriaizer, out_file: &str) -> Self {
         Self {
             dresult: data,
@@ -171,52 +170,52 @@ impl SadCsvOutput {
     }
 }
 
-impl SadOutput for SadCsvOutput {
+impl SadOutput for SadJsonOutput {
     fn write(&self) -> SadApplicationResult<()> {
-        let fpath = std::path::Path::new(&self.file_name);
-        // println!("{:?}", fpath.canonicalize()?);
-        let (fw, exists) = match fpath.exists() {
-            true => (OpenOptions::new().append(true).open(fpath).unwrap(), true),
-            false => (
-                OpenOptions::new()
-                    .append(true)
-                    .create_new(true)
-                    .open(fpath)
-                    .unwrap(),
-                false,
-            ),
-        };
-        let mut wtr = csv::Writer::from_writer(fw);
-        let mut out_rows = Vec::<Vec<String>>::new();
-        let mut max_len = 0usize;
-        for c in self.deserialization_result().context_vec() {
-            let mut out_row = Vec::<String>::new();
-            out_row.push(c.pubkey().to_string());
-            out_row.push(c.account().owner().to_string());
-            for d in c.deserialize_list() {
-                get_data(d, &mut out_row)
-            }
-            // Get maximum size
-            if out_row.len() > max_len {
-                max_len = out_row.len()
-            }
+        // let fpath = std::path::Path::new(&self.file_name);
+        // // println!("{:?}", fpath.canonicalize()?);
+        // let (fw, exists) = match fpath.exists() {
+        //     true => (OpenOptions::new().append(true).open(fpath).unwrap(), true),
+        //     false => (
+        //         OpenOptions::new()
+        //             .append(true)
+        //             .create_new(true)
+        //             .open(fpath)
+        //             .unwrap(),
+        //         false,
+        //     ),
+        // };
+        // let mut wtr = csv::Writer::from_writer(fw);
+        // let mut out_rows = Vec::<Vec<String>>::new();
+        // let mut max_len = 0usize;
+        // for c in self.deserialization_result().context_vec() {
+        //     let mut out_row = Vec::<String>::new();
+        //     out_row.push(c.pubkey().to_string());
+        //     out_row.push(c.account().owner().to_string());
+        //     for d in c.deserialize_list() {
+        //         get_data(d, &mut out_row)
+        //     }
+        //     // Get maximum size
+        //     if out_row.len() > max_len {
+        //         max_len = out_row.len()
+        //     }
 
-            out_rows.push(out_row)
-        }
-        // Set equal row lengths and write record
-        for r in out_rows.iter_mut() {
-            let diff = max_len - r.len();
-            if diff != 0 {
-                for _ in 0..diff {
-                    r.push(String::new())
-                }
-            }
-            if r.len() != max_len {
-                return Err(SadAppErrorType::InconsistentRowLength(max_len, r.len()));
-            }
-            wtr.write_record(r).unwrap();
-            wtr.flush().unwrap();
-        }
+        //     out_rows.push(out_row)
+        // }
+        // // Set equal row lengths and write record
+        // for r in out_rows.iter_mut() {
+        //     let diff = max_len - r.len();
+        //     if diff != 0 {
+        //         for _ in 0..diff {
+        //             r.push(String::new())
+        //         }
+        //     }
+        //     if r.len() != max_len {
+        //         return Err(SadAppErrorType::InconsistentRowLength(max_len, r.len()));
+        //     }
+        //     wtr.write_record(r).unwrap();
+        //     wtr.flush().unwrap();
+        // }
         Ok(())
     }
 

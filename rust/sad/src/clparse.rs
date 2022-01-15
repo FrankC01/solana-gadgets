@@ -92,9 +92,9 @@ pub fn parse_command_line() -> ArgMatches<'static> {
                 .short("o")
                 .global(true)
                 .takes_value(true)
-                .possible_values(&["csv", "stdout"])
+                .possible_values(&["json", "stdout"])
                 .default_value("stdout")
-                .requires_ifs(&[("csv", "filename")])
+                .requires_ifs(&[("json", "filename")])
                 .help("Direct output to file"),
         )
         .arg(
@@ -104,7 +104,7 @@ pub fn parse_command_line() -> ArgMatches<'static> {
                 .global(true)
                 .takes_value(true)
                 .requires("output")
-                .help("Filename for '-o excel' or '-o csv' output"),
+                .help("Filename for '-o json' output"),
         )
         .subcommand(App::new("account").about("Deserialize single account"))
         .subcommand(App::new("program").about("Deserialize all program owned accounts"))
@@ -175,8 +175,8 @@ mod tests {
                     .long("output")
                     .short("o")
                     .takes_value(true)
-                    .possible_values(&["csv", "excel", "stdout"])
-                    .requires_ifs(&[("excel", "filename"), ("csv", "filename")])
+                    .possible_values(&["json", "stdout"])
+                    .requires_ifs(&[("json", "filename")])
                     // .default_value("stdout")
                     .help("Direct output to file"),
             )
@@ -186,14 +186,14 @@ mod tests {
                     .short("f")
                     .takes_value(true)
                     .requires("output")
-                    .help("Filename for '-o excel' or '-o csv' output"),
+                    .help("Filename for '-o json' output"),
             )
             .get_matches_from_safe(faux_cmd_line)
     }
 
     #[test]
     fn test_requiredifs_options_without_output_should_pass() {
-        let res = argsetup(vec!["prog", "-o", "excel", "-f", "filename"]);
+        let res = argsetup(vec!["prog", "-o", "json", "-f", "filename"]);
         assert!(res.is_ok());
     }
     #[test]
@@ -204,7 +204,7 @@ mod tests {
     }
     #[test]
     fn test_requiresif_options_without_file_should_fail() {
-        let res = argsetup(vec!["prog", "-o", "excel"]);
+        let res = argsetup(vec!["prog", "-o", "json"]);
         assert!(res.is_err()); // We  used -o excel so -f <filename> is required
         assert_eq!(res.unwrap_err().kind, ErrorKind::MissingRequiredArgument);
     }

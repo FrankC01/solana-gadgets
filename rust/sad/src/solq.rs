@@ -6,7 +6,6 @@ use {
         errors::{SadAccountErrorType, SadAccountResult},
         sadtypes::SadValue,
     },
-    base64::encode,
     solana_client::rpc_client::RpcClient,
     solana_sdk::{
         account::{Account, ReadableAccount},
@@ -242,7 +241,6 @@ mod tests {
                 key_list.iter().find(|x| *x == &cvec[i].pubkey()),
                 Some(&cvec[i].pubkey())
             );
-            // println!("{:?}", cvec[i].deserialize_list());
         }
         for c in deser.context_vec() {
             println!("HL Elements {}", c.deserialize_list().len());
