@@ -3,16 +3,15 @@
 //! from YAML declaration and then walking said tree to deserialize
 //! input vector of bytes that come from a program owned account data
 
-use crate::sadtypes::from_scalar_value_for;
-
 use {
     crate::{
         errors::{SadTreeError, SadTreeResult},
-        sadtypes::{deser_value_for, is_sadvalue_type, SadValue},
+        sadtypes::{deser_value_for, from_scalar_value_for, is_sadvalue_type, SadValue},
     },
     borsh::BorshDeserialize,
     downcast_rs::{impl_downcast, Downcast},
     lazy_static::*,
+    serde_json::{json, Value},
     std::collections::HashMap,
     yaml_rust::{yaml::Yaml, YamlLoader},
 };
@@ -45,7 +44,6 @@ lazy_static! {
     static ref JUMP_TABLE: HashMap<String, fn(&Yaml) -> Result<Box<dyn Node>, SadTreeError>> = {
         let mut jump_table =
             HashMap::<String, fn(&Yaml) -> Result<Box<dyn Node>, SadTreeError>>::new();
-        jump_table.insert("length_prefix".to_string(), SadLengthPrefix::from_yaml);
         jump_table.insert("HashMap".to_string(), SadHashMap::from_yaml);
         jump_table.insert("Vec".to_string(), SadVector::from_yaml);
         jump_table.insert("Tuple".to_string(), SadTuple::from_yaml);
@@ -161,69 +159,6 @@ impl Node for SadNamedField {
     }
 }
 impl NodeWithChildren for SadNamedField {
-    fn children(&self) -> &Vec<Box<dyn Node>> {
-        &self.children
-    }
-}
-
-/// Implements NodeWithChildren for length prefixed children
-#[derive(Debug)]
-pub struct SadLengthPrefix {
-    sad_value_type: String,
-    sad_length_type: String,
-    children: Vec<Box<dyn Node>>,
-}
-impl SadLengthPrefix {
-    fn from_yaml(in_yaml: &Yaml) -> SadTreeResult<Box<dyn Node>> {
-        let in_str = in_yaml[SAD_YAML_SIZE_TYPE].as_str().unwrap();
-        if !is_sadvalue_type(in_str) {
-            return Err(SadTreeError::UnknownType(String::from(in_str)));
-        }
-        let in_type_str = in_yaml[SAD_YAML_TYPE].as_str().unwrap();
-        let mut array = Vec::<Box<dyn Node>>::new();
-        let contains = &in_yaml[SAD_YAML_CONTAINS];
-        match contains {
-            Yaml::Array(lst) => {
-                array.push(parse(&lst[0]).unwrap());
-                Ok(Box::new(SadLengthPrefix {
-                    sad_value_type: String::from(in_type_str),
-                    sad_length_type: String::from(in_str),
-                    children: array,
-                }))
-            }
-            Yaml::Hash(_map) => {
-                array.push(parse(contains).unwrap());
-                Ok(Box::new(SadLengthPrefix {
-                    sad_value_type: String::from(in_type_str),
-                    sad_length_type: String::from(in_str),
-                    children: array,
-                }))
-            }
-            _ => Err(SadTreeError::ExpectedHashMapOrArray),
-        }
-    }
-
-    pub fn length_type(&self) -> &String {
-        &self.sad_length_type
-    }
-}
-impl Node for SadLengthPrefix {
-    fn decl_type(&self) -> &String {
-        &self.sad_value_type
-    }
-
-    fn deser(&self, data: &mut &[u8], collection: &mut Vec<SadValue>) {
-        let overall = u32::try_from_slice(&data[0..4]).unwrap();
-        *data = &data[4..];
-        let mut coll = Vec::<SadValue>::new();
-        coll.push(SadValue::U32(overall));
-        for c in &self.children {
-            c.deser(data, &mut coll)
-        }
-        collection.push(SadValue::LengthPrefixed(coll))
-    }
-}
-impl NodeWithChildren for SadLengthPrefix {
     fn children(&self) -> &Vec<Box<dyn Node>> {
         &self.children
     }
@@ -532,115 +467,111 @@ impl SadSchemaElement {
             0
         }
     }
-    pub fn flat_header(
-        &self,
-        dec_name: &String,
-        collect: &mut Vec<String>,
-        with_data: &Vec<SadValue>,
-    ) {
-        let prefix = format!("{}_{}", dec_name, self.schema_type);
-        // If there are items then self is a compound (i.e. HashMap, Vec, etc.)
+
+    pub fn sad_to_json(&self, for_data: &Vec<SadValue>) -> Value {
         if let Some(items) = &self.items {
             match self.schema_type.as_str() {
                 "Vec" => {
-                    // Using deserialized Vec data as header driver
-                    match &with_data[0] {
-                        // Get the inner vector for the hashmap and
-                        // using the data size, use as header repetitions
+                    match &for_data[0] {
+                        // Get the inner vector and, using the data size, repeat
                         SadValue::Vec(v) => {
+                            let mut json_vec = json!([]);
+                            let raw_json = json_vec.as_array_mut().unwrap();
                             for i in 0..v.len() {
                                 let mut d = Vec::<SadValue>::new();
                                 d.push(v[i].clone());
-                                items[0].flat_header(
-                                    &format!("{}_{}_{}", prefix, "item", i),
-                                    collect,
-                                    &d,
-                                )
+                                raw_json.push(items[0].sad_to_json(&d))
                             }
+                            json_vec
                         }
                         _ => unreachable!(),
                     }
                 }
-                "Tuple" => {
-                    // Using deserialized Tuple data as header driver
-                    match &with_data[0] {
-                        SadValue::Tuple(v) => {
-                            for i in 0..v.len() {
-                                let mut d = Vec::<SadValue>::new();
-                                d.push(v[i].clone());
-                                items[i].flat_header(
-                                    &format!("{}_{}_{}", prefix, "item", i),
-                                    collect,
-                                    &d,
-                                )
-                            }
-                        }
-                        _ => unreachable!(),
-                    }
-                }
-                "HashMap" => {
-                    // Using deserialized HashMap data as header driver
-                    match &with_data[0] {
-                        SadValue::HashMap(v) => {
-                            for vi in 0..v.len() {
-                                let mut d = Vec::<SadValue>::new();
-                                d.push(v[vi][0].clone());
-                                items[0].flat_header(
-                                    &format!("{}_{}_{}", prefix, "key", vi),
-                                    collect,
-                                    &d,
-                                );
-                                d.drain(..);
-                                d.push(v[vi][1].clone());
-                                items[1].flat_header(
-                                    &format!("{}_{}_{}", prefix, "value", vi),
-                                    collect,
-                                    &d,
-                                );
-                            }
-                        }
-                        _ => unreachable!(),
-                    }
-                }
-                "CStruct" => match &with_data[0] {
-                    SadValue::CStruct(mf) => {
-                        for i in 0..mf.len() {
+                "Tuple" => match &for_data[0] {
+                    SadValue::Tuple(v) => {
+                        let mut json_tuple = json!([]);
+                        let raw_json = json_tuple.as_array_mut().unwrap();
+                        for i in 0..v.len() {
                             let mut d = Vec::<SadValue>::new();
-                            d.push(mf[i].clone());
-                            items[i].flat_header(&prefix, collect, &d)
+                            d.push(v[i].clone());
+                            raw_json.push(items[i].sad_to_json(&d))
                         }
+                        json_tuple
                     }
                     _ => unreachable!(),
                 },
-                "NamedField" => match &with_data[0] {
+                "HashMap" => match &for_data[0] {
+                    SadValue::HashMap(v) => {
+                        let mut json_map = json!({});
+                        let raw_json = json_map.as_object_mut().unwrap();
+                        for vi in 0..v.len() {
+                            let mut d = Vec::<SadValue>::new();
+                            d.push(v[vi][0].clone());
+                            let json_key = items[0].sad_to_json(&d);
+                            d.drain(..);
+                            d.push(v[vi][1].clone());
+                            let json_value = items[1].sad_to_json(&d);
+                            raw_json.insert(json_key.to_string(), json_value);
+                        }
+                        json_map
+                    }
+                    _ => unreachable!(),
+                },
+                "CStruct" => match &for_data[0] {
+                    SadValue::CStruct(nfs) => {
+                        let mut json_cstruct = json!({});
+                        let raw_json = json_cstruct.as_object_mut().unwrap();
+                        println!(
+                            "CStruct items len = {} data len = {}",
+                            items.len(),
+                            nfs.len()
+                        );
+                        for i in 0..nfs.len() {
+                            match &nfs[i] {
+                                SadValue::NamedField(nvp) => {
+                                    let mut d = Vec::<SadValue>::new();
+                                    d.push(nfs[i].clone());
+                                    raw_json.insert(
+                                        from_scalar_value_for(&nvp[0]),
+                                        items[i].sad_to_json(&d),
+                                    );
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        json_cstruct
+                    }
+                    _ => unreachable!(),
+                },
+                "NamedField" => match &for_data[0] {
                     SadValue::NamedField(f) => {
                         let mut d = Vec::<SadValue>::new();
                         d.push(f[1].clone());
-                        items[0].flat_header(
-                            &format!("{}_{}", prefix, from_scalar_value_for(&f[0])),
-                            collect,
-                            &d,
-                        )
+                        items[0].sad_to_json(&d)
                     }
                     _ => unreachable!(),
                 },
-                "length_prefix" => match &with_data[0] {
-                    SadValue::LengthPrefixed(v) => {
-                        if let Some(s) = self.get_ancillary_type() {
-                            collect.push(format!("{}_{}", prefix, s.clone()));
-                            let mut d = Vec::<SadValue>::new();
-                            d.push(v[1].clone());
-                            items[0].flat_header(&prefix, collect, &d)
-                        } else {
-                            unreachable!()
-                        }
-                    }
-                    _ => unreachable!(),
-                },
-                _ => collect.push(prefix.clone()),
+                _ => unreachable!(),
             }
         } else {
-            collect.push(prefix.clone());
+            match &for_data[0] {
+                SadValue::String(item) => json!(item),
+                SadValue::Bool(item) => json!(item),
+                SadValue::U8(item) => json!(item),
+                SadValue::U16(item) => json!(item),
+                SadValue::U32(item) => json!(item),
+                SadValue::U64(item) => json!(item),
+                SadValue::U128(item) => json!(item.to_string()),
+                SadValue::I8(item) => json!(item),
+                SadValue::I16(item) => json!(item),
+                SadValue::I32(item) => json!(item),
+                SadValue::I64(item) => json!(item),
+                SadValue::I128(item) => json!(item.to_string()),
+                SadValue::F32(item) => json!(item),
+                SadValue::F64(item) => json!(item),
+                SadValue::PublicKey(item) => json!(item.to_string()),
+                _ => unreachable!(),
+            }
         }
     }
 }
@@ -661,10 +592,13 @@ impl SadSchemaItem {
     pub fn get_items(&self) -> &Vec<SadSchemaElement> {
         &self.items
     }
-    pub fn flat_header(&self, collect: &mut Vec<String>, for_data: &Vec<SadValue>) {
-        for item in self.get_items() {
-            item.flat_header(self.get_name(), collect, for_data)
-        }
+
+    pub fn sad_to_json(&self, json_map: &mut Value, for_data: &Vec<SadValue>) {
+        let raw_map = json_map.as_object_mut().unwrap();
+        raw_map.insert(
+            self.get_name().clone(),
+            self.get_items()[0].sad_to_json(for_data),
+        );
     }
 }
 
@@ -725,19 +659,19 @@ impl SadSchema {
         summary
     }
 
-    /// Given a result of deserialization, generate a header vector
-    /// where each high level item is expanded to unique positional
-    /// string identifiers
-    pub fn flat_header(&self, with_data: &Vec<SadValue>) -> Vec<String> {
-        let mut collect = Vec::<String>::new();
+    /// Given a result of deserialization, generate a JSON
+    /// representation
+
+    pub fn sad_to_json(&self, with_data: &Vec<SadValue>) -> Value {
+        let mut json_out = json!({});
         let mut index = 0usize;
         for item in self.get_items() {
             let mut d = Vec::<SadValue>::new();
             d.push(with_data[index].clone());
-            item.flat_header(&mut collect, &d);
+            item.sad_to_json(&mut json_out, &d);
             index += 1;
         }
-        collect
+        json_out
     }
 
     fn itemize(children: &Vec<Box<dyn Node>>) -> Vec<SadSchemaElement> {
@@ -751,15 +685,6 @@ impl SadSchema {
     fn schema_item(node: &Box<dyn Node>, collect: &mut Vec<SadSchemaElement>) {
         let schm_element = SadSchemaElement::new(&node.decl_type());
         match node.decl_type().as_str() {
-            "length_prefix" => {
-                let lp = node.downcast_ref::<SadLengthPrefix>().unwrap();
-                collect.push(
-                    schm_element
-                        .scalar(false)
-                        .ancillary_type(lp.length_type())
-                        .items(SadSchema::itemize(lp.children())),
-                )
-            }
             "HashMap" => {
                 let lp = node.downcast_ref::<SadHashMap>().unwrap();
                 collect.push(
@@ -899,12 +824,11 @@ mod tests {
     use yaml_rust::YamlLoader;
 
     const INDEX_HASHMAP_STRING_U128: usize = 2;
-    const INDEX_LENGTHPREFIX_HASHMAP: usize = 3;
-    const INDEX_VECTOR_STRING: usize = 4;
-    const INDEX_VECTOR_U32: usize = 5;
-    const INDEX_TUPLE_STRING_U128: usize = 6;
-    const INDEX_STRUCT_STRING_U32: usize = 7;
-    const INDEX_PUBLICKEY: usize = 10;
+    const INDEX_VECTOR_STRING: usize = 3;
+    const INDEX_VECTOR_U32: usize = 4;
+    const INDEX_TUPLE_STRING_U128: usize = 5;
+    const INDEX_STRUCT_STRING_U32: usize = 6;
+    const INDEX_PUBLICKEY: usize = 9;
 
     #[derive(BorshSerialize)]
     struct OfTuple(String, u128);
@@ -946,7 +870,10 @@ mod tests {
         // println!("{:?}", desc.schema().flat_header(None));
         let deserialize_vector = desc.deser(&mut pacv.as_slice()).unwrap();
         println!("{:?}", deserialize_vector);
-        println!("{:?}", desc.schema().flat_header(&deserialize_vector));
+        println!(
+            "{:?}",
+            desc.schema().sad_to_json(&deserialize_vector).to_string()
+        );
     }
 
     #[test]
@@ -1004,23 +931,10 @@ mod tests {
         let data = mhmap.try_to_vec().unwrap();
         let deserialize_vector = desc.deser(&mut data.as_slice()).unwrap();
         println!("{:?}", deserialize_vector);
-        println!("{:?}", desc.schema().flat_header(&deserialize_vector));
-    }
-    #[test]
-    fn test_length_prefix_hashmap_pass() {
-        let mut mhmap = HashMap::<&str, &str>::new();
-        mhmap.insert("foo", "1u128");
-        mhmap.insert("bar", "2u128");
-        mhmap.insert("baz", "3u128");
-        let result = get_runner_yaml();
-        let desc = Deseriaizer::new(&result[INDEX_LENGTHPREFIX_HASHMAP]);
-        let data = mhmap.try_to_vec().unwrap();
-        let lpref = data.len() as u32;
-        let mut head = lpref.try_to_vec().unwrap();
-        head.extend(data);
-        let deserialize_vector = desc.deser(&mut head.as_slice()).unwrap();
-        println!("{:?}", deserialize_vector);
-        println!("{:?}", desc.schema().flat_header(&deserialize_vector));
+        println!(
+            "{:?}",
+            desc.schema().sad_to_json(&deserialize_vector).to_string()
+        );
     }
 
     #[test]
@@ -1032,8 +946,10 @@ mod tests {
         let desc = Deseriaizer::new(&result[INDEX_VECTOR_STRING]);
         let data = mhmap.try_to_vec().unwrap();
         let deserialize_vector = desc.deser(&mut data.as_slice()).unwrap();
-        println!("{:?}", desc.schema().flat_header(&deserialize_vector));
-        println!("{:?}", deserialize_vector);
+        println!(
+            "{:?}",
+            desc.schema().sad_to_json(&deserialize_vector).to_string()
+        );
     }
 
     #[test]
@@ -1046,7 +962,10 @@ mod tests {
         let data = mhmap.try_to_vec().unwrap();
         let deserialize_vector = desc.deser(&mut data.as_slice()).unwrap();
         println!("{:?}", deserialize_vector);
-        println!("{:?}", desc.schema().flat_header(&deserialize_vector));
+        println!(
+            "{:?}",
+            desc.schema().sad_to_json(&deserialize_vector).to_string()
+        );
     }
 
     #[test]
@@ -1060,9 +979,10 @@ mod tests {
         let deserialize_vector = desc.deser(&mut data.as_slice()).unwrap();
         println!("deser {:?}", deserialize_vector);
         println!("types{:?}", desc.schema().item_type_prefixes());
-        let fhdr = desc.schema().flat_header(&deserialize_vector);
-        println!("Data header {:?}", fhdr);
-        println!("Header summary {:?}", desc.schema().gen_type_summary(&fhdr));
+        println!(
+            "{:?}",
+            desc.schema().sad_to_json(&deserialize_vector).to_string()
+        );
     }
 
     #[test]
@@ -1077,9 +997,10 @@ mod tests {
         let deserialize_vector = desc.deser(&mut data.as_slice()).unwrap();
         println!("deser {:?}", deserialize_vector);
         println!("types{:?}", desc.schema().item_type_prefixes());
-        let fhdr = desc.schema().flat_header(&deserialize_vector);
-        println!("Data header {:?}", fhdr);
-        println!("Header summary {:?}", desc.schema().gen_type_summary(&fhdr));
+        println!(
+            "{:?}",
+            desc.schema().sad_to_json(&deserialize_vector).to_string()
+        );
     }
 
     #[test]
@@ -1092,8 +1013,9 @@ mod tests {
         let deserialize_vector = desc.deser(&mut pk_ser.as_slice()).unwrap();
         println!("deser {:?}", deserialize_vector);
         println!("types{:?}", desc.schema().item_type_prefixes());
-        let fhdr = desc.schema().flat_header(&deserialize_vector);
-        println!("Data header {:?}", fhdr);
-        println!("Header summary {:?}", desc.schema().gen_type_summary(&fhdr));
+        println!(
+            "{:?}",
+            desc.schema().sad_to_json(&deserialize_vector).to_string()
+        );
     }
 }

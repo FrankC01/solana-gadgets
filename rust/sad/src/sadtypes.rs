@@ -49,8 +49,6 @@ pub enum SadValue {
     CStruct(Vec<SadValue>),
     #[strum(props(Type = "Compound"))]
     NamedField(Vec<SadValue>),
-    #[strum(props(Type = "Compound"))]
-    LengthPrefixed(Vec<SadValue>),
     #[strum(props(Type = "Scalar"))]
     PublicKey(Pubkey),
 }

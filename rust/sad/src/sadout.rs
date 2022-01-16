@@ -236,6 +236,7 @@ mod tests {
     use base64::decode;
     use borsh::BorshSerialize;
     use gadgets_common::load_yaml_file;
+    use serde_json::{json, Value};
     use yaml_rust::Yaml;
 
     const INDEX_STRUCT_STRING_U32: usize = 7;
@@ -352,5 +353,33 @@ mod tests {
         let desc = Deseriaizer::new(&result[INDEX_STRUCT_STRING_U32]);
         let data = mhmap.try_to_vec().unwrap();
         write(&desc.deser(&mut data.as_slice()).unwrap());
+    }
+
+    #[test]
+    fn basic_json_test() {
+        let owner = "fin";
+        let acct = "bop";
+        let keys = ["initialized", "map_length", "map"];
+        let mut entry = json!({
+            "owner": owner,
+            "account": acct,
+        });
+        let mut data = json!({});
+        for i in keys {
+            data.as_object_mut()
+                .unwrap()
+                .insert(i.to_string(), json!("foo"));
+        }
+        entry
+            .as_object_mut()
+            .unwrap()
+            .insert("data".to_string(), data);
+
+        // (jvec
+        //     .as_array_mut()
+        //     .unwrap()
+        //     .push(serde_json::json!([1, 2, 3])));
+
+        println!("{:?}", entry.to_string());
     }
 }

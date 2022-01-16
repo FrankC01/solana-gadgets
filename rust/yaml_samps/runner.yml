@@ -17,17 +17,6 @@ hashmap:
         - type: U128
 ...
 ---
-lengthencoded:
-  - size_and_map:
-      type: length_prefix
-      size_type: U32
-      contains:
-        - type: HashMap
-          fields:
-            - type: String
-            - type: String
-...
----
 vector_a:
   - avec:
       type: Vec
