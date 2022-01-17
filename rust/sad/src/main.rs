@@ -97,7 +97,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             matches.value_of("filename").unwrap(),
         )
         .write()?,
-        "stdout" => SadSysOutput::new(deserialize_result).write()?,
+        "stdout" => SadSysOutput::new(deserialize_result, destree).write()?,
         _ => unreachable!(),
     };
     Ok(())

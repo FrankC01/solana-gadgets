@@ -48,21 +48,19 @@
                 "A94wMjV54C8f8wn7zL8TxNCdNiGoq7XSN7vWGrtd4vwU",
                 // "-s",
                 // "user2",
-                // "-o",
-                // "stdout",
-                // "-o",
-                // "excel",
                 "-o",
-                "csv",
-                "-f",
-                "~/somefile"
+                "stdout",
+                // "-o",
+                // "json",
+                // "-f",
+                // "~/somefile"
             ],
             "cwd": "${workspaceFolder}"
         },
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug program 'sad'",
+            "name": "Debug program 'sad' json",
             "cargo": {
                 "args": [
                     "build",
@@ -81,9 +79,9 @@
                 "-p",
                 "SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv",
                 "-o",
-                "csv",
+                "json",
                 "-f",
-                "somefile.csv"
+                "somefile.json"
             ],
             "cwd": "${workspaceFolder}"
         },

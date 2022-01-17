@@ -9,3 +9,4 @@ Cargo.lock
 
 # Miscellaneous excludes
 *.csv
+somefile.json

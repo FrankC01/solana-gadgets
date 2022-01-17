@@ -32,7 +32,7 @@ impl_downcast!(NodeWithChildren);
 const SAD_YAML_TYPE: &str = "type";
 const SAD_YAML_NAME: &str = "name";
 const SAD_YAML_DESCRIPTOR: &str = "descriptor";
-const SAD_YAML_SIZE_TYPE: &str = "size_type";
+// const SAD_YAML_SIZE_TYPE: &str = "size_type";
 const SAD_YAML_CONTAINS: &str = "contains";
 const SAD_YAML_FIELDS: &str = "fields";
 const SAD_NAMED_FIELD: &str = "NamedField";
@@ -439,10 +439,6 @@ impl SadSchemaElement {
             ..SadSchemaElement::default()
         }
     }
-    fn get_ancillary_type(&self) -> &Option<String> {
-        &self.schema_ancillary_type
-    }
-
     fn ancillary_type(mut self, atype: &String) -> Self {
         self.schema_ancillary_type = Some(atype.clone());
         self
@@ -458,14 +454,6 @@ impl SadSchemaElement {
     }
     pub fn is_scalar(&self) -> bool {
         self.scalar
-    }
-
-    pub fn item_count(&self) -> usize {
-        if self.items.is_some() {
-            self.items.as_ref().unwrap().len()
-        } else {
-            0
-        }
     }
 
     pub fn sad_to_json(&self, for_data: &Vec<SadValue>) -> Value {
@@ -506,12 +494,19 @@ impl SadSchemaElement {
                         let raw_json = json_map.as_object_mut().unwrap();
                         for vi in 0..v.len() {
                             let mut d = Vec::<SadValue>::new();
-                            d.push(v[vi][0].clone());
-                            let json_key = items[0].sad_to_json(&d);
-                            d.drain(..);
+                            let json_key = if items[0].is_scalar()
+                                && items[0].schema_type == "String".to_string()
+                            {
+                                from_scalar_value_for(&v[vi][0])
+                            } else {
+                                d.push(v[vi][0].clone());
+                                let sad_key = items[0].sad_to_json(&d);
+                                d.drain(..);
+                                sad_key.to_string()
+                            };
                             d.push(v[vi][1].clone());
                             let json_value = items[1].sad_to_json(&d);
-                            raw_json.insert(json_key.to_string(), json_value);
+                            raw_json.insert(json_key, json_value);
                         }
                         json_map
                     }
@@ -593,7 +588,7 @@ impl SadSchemaItem {
         &self.items
     }
 
-    pub fn sad_to_json(&self, json_map: &mut Value, for_data: &Vec<SadValue>) {
+    fn sad_to_json(&self, json_map: &mut Value, for_data: &Vec<SadValue>) {
         let raw_map = json_map.as_object_mut().unwrap();
         raw_map.insert(
             self.get_name().clone(),
@@ -622,6 +617,7 @@ impl SadSchema {
     pub fn item_type_prefixes(&self) -> &Vec<String> {
         &self.item_type_prefix
     }
+
     /// Gets item_name_type constructs, a Vec of
     /// item_name_TYPE
     fn gen_items_prefix(items: &Vec<SadSchemaItem>) -> Vec<String> {
@@ -662,7 +658,7 @@ impl SadSchema {
     /// Given a result of deserialization, generate a JSON
     /// representation
 
-    pub fn sad_to_json(&self, with_data: &Vec<SadValue>) -> Value {
+    fn sad_to_json(&self, with_data: &Vec<SadValue>) -> Value {
         let mut json_out = json!({});
         let mut index = 0usize;
         for item in self.get_items() {
@@ -779,6 +775,10 @@ impl Deseriaizer {
 
     pub fn schema(&self) -> &SadSchema {
         &self.sad_schema
+    }
+
+    pub fn to_json(&self, with_data: &Vec<SadValue>) -> Value {
+        self.sad_schema.sad_to_json(&with_data)
     }
 
     pub fn deser(&self, data: &mut &[u8]) -> SadTreeResult<Vec<SadValue>> {
@@ -932,8 +932,8 @@ mod tests {
         let deserialize_vector = desc.deser(&mut data.as_slice()).unwrap();
         println!("{:?}", deserialize_vector);
         println!(
-            "{:?}",
-            desc.schema().sad_to_json(&deserialize_vector).to_string()
+            "{}",
+            serde_json::to_string_pretty(&desc.schema().sad_to_json(&deserialize_vector)).unwrap()
         );
     }
 
@@ -947,8 +947,8 @@ mod tests {
         let data = mhmap.try_to_vec().unwrap();
         let deserialize_vector = desc.deser(&mut data.as_slice()).unwrap();
         println!(
-            "{:?}",
-            desc.schema().sad_to_json(&deserialize_vector).to_string()
+            "{}",
+            serde_json::to_string_pretty(&desc.to_json(&deserialize_vector)).unwrap()
         );
     }
 
@@ -963,8 +963,8 @@ mod tests {
         let deserialize_vector = desc.deser(&mut data.as_slice()).unwrap();
         println!("{:?}", deserialize_vector);
         println!(
-            "{:?}",
-            desc.schema().sad_to_json(&deserialize_vector).to_string()
+            "{}",
+            serde_json::to_string_pretty(&desc.to_json(&deserialize_vector)).unwrap()
         );
     }
 
@@ -980,8 +980,8 @@ mod tests {
         println!("deser {:?}", deserialize_vector);
         println!("types{:?}", desc.schema().item_type_prefixes());
         println!(
-            "{:?}",
-            desc.schema().sad_to_json(&deserialize_vector).to_string()
+            "{}",
+            serde_json::to_string_pretty(&desc.to_json(&deserialize_vector)).unwrap()
         );
     }
 
@@ -998,8 +998,8 @@ mod tests {
         println!("deser {:?}", deserialize_vector);
         println!("types{:?}", desc.schema().item_type_prefixes());
         println!(
-            "{:?}",
-            desc.schema().sad_to_json(&deserialize_vector).to_string()
+            "{}",
+            serde_json::to_string_pretty(&desc.to_json(&deserialize_vector)).unwrap()
         );
     }
 
@@ -1014,8 +1014,8 @@ mod tests {
         println!("deser {:?}", deserialize_vector);
         println!("types{:?}", desc.schema().item_type_prefixes());
         println!(
-            "{:?}",
-            desc.schema().sad_to_json(&deserialize_vector).to_string()
+            "{}",
+            serde_json::to_string_pretty(&desc.to_json(&deserialize_vector)).unwrap()
         );
     }
 }
