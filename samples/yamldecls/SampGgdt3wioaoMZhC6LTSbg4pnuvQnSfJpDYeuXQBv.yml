@@ -9,11 +9,3 @@ SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv:
         fields:
           - type: String
           - type: String
-    # - size_and_map:
-    #     type: length_prefix
-    #     size_type: U32
-    #     contains:
-    #       - type: HashMap
-    #         fields:
-    #           - type: String
-    #           - type: String

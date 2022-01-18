@@ -59,8 +59,6 @@ Type Semantic | Supported Type Syntax | Notes
 ------------- | ------------ | -------------
 Named fields | NamedField | Needed for CStruct
 Public Key | PublicKey |
-Fixed Size Arrays (compound type) | array | The child supports the size and types in array
-Length Prefix | length_prefix | Controls the number of bytes to deserialize for the child.
 
 ### Simple Example
 
@@ -70,15 +68,14 @@ This file is used to deserialize data from accounts owned by [program](https://g
 
 ```yaml
 ---
-SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv: # Can be arbitrary but this is an actual devnet program ID
+SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv:
     - initialized:
-        type: Bool              # byte 0
-    - size_and_map:
-        type: length_prefix
-        size_type: U32          # byte 1-4
-        contains:
-          - type: HashMap       # byte 5 through bytes from deserializing 'size_type' above
-            fields:
-              - type: String
-              - type: String
+        type: Bool
+    - map_length:
+        type: U32
+    - map:
+        type: HashMap
+        fields:
+          - type: String
+          - type: String
 ```
