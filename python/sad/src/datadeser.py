@@ -239,27 +239,6 @@ class Set(SingleNodeContainer):
         super().__init__(container_key_name, in_dict)
 
 
-class LengthPrefixNode(NodeWithChildren):
-    """Has a length associated to size of contained type"""
-
-    def __init__(self, container_key_name: str, in_dict: dict) -> None:
-        in_dict['type'] = in_dict['size_type']
-        super().__init__(container_key_name, in_dict)
-        self._borsh_parse_fn = self.borsh_type.parse
-        self._borsh_parse_stream_fn = self.borsh_type.parse_stream
-
-    def describe(self) -> None:
-        print(f"consumes {self.in_type} to get length of:")
-        for c in self.children:
-            c.describe()
-
-    def deser(self, in_stream: BytesIO, result: list) -> list:
-        length = self._borsh_parse_stream_fn(in_stream)
-        result.append(length)
-        self.children[0].deser_line(length, in_stream, result)
-        return result
-
-
 class Tree(NodeWithChildren):
     def __init__(self, in_dict: dict):
         self._name = [*in_dict][0]
@@ -284,7 +263,6 @@ class Tree(NodeWithChildren):
 
 
 _BIG_MAP = {
-    'length_prefix': partial(LengthPrefixNode, 'contains'),
     'array': partial(ArrayNode, 'contains'),
     'Vec': partial(Vector, 'contains'),
     'Option': partial(Opt, 'contains'),

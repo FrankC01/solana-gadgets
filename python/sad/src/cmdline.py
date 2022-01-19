@@ -42,6 +42,10 @@ def _sad_cmd_parser(in_cfg: Config):
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description="Solana Account Decoder")
 
+    parser.add_argument('-V', '--version',
+                        help='Prints version information',
+                        action='store_true')
+
     subparsers = parser.add_subparsers(
         help='Data from', dest='action')
     parent_parser = argparse.ArgumentParser(add_help=False)
@@ -106,7 +110,14 @@ def sad_command_line() -> dict:
     cmdparser = _sad_cmd_parser(cfg)
     args = cmdparser.parse_args()
     samp_desc = "../../samples/yamldecls/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml"
-    print(args)
+    # print(args)
+
+    # Version is quick exit
+    if args.version:
+        cmd_target['version'] = True
+        return cmd_target
+    else:
+        cmd_target['version'] = False
 
     # Check that appropriate key is provided given the context
     # Account's public key

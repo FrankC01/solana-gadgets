@@ -14,11 +14,19 @@ from sad_account import SadAccountInfo
 def main():
     try:
         setup = sad_command_line()
+
+        if setup['version']:
+            print("sad 0.1.0")
+            return 0
         # Deserialize
         accounts = None
+        # If this is for a single account, the public_key is
+        # for the account
         if setup['action'] == 'account':
             accounts = SadAccountInfo.single_account(
                 setup['client'], setup['public_key'], setup['confirmation'])
+        # If this is for a program account, the public_key is
+        # for the program
         else:
             accounts = SadAccountInfo.program_accounts(
                 setup['client'], setup['public_key'], setup['confirmation'])
