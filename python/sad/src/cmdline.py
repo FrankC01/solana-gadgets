@@ -62,6 +62,7 @@ def _sad_cmd_parser(in_cfg: Config):
     parent_parser.add_argument('-f', '--filename',
                                help='Set filename for output if json',
                                dest='filename',
+                               type=argparse.FileType('a'),
                                required=False,
                                action='store')
 

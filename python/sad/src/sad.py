@@ -39,7 +39,13 @@ def main():
                         str(acc.account_key), str(acc.owner_key), io.BytesIO(acc.data)))
                 else:
                     print(f"Empty data for {setup['public_key']}")
-            print(json.dumps(acc_list, indent=4))
+
+            if setup['output_type'] == 'stdout':
+                print(json.dumps(acc_list, indent=2))
+            else:
+                json.dump(acc_list, setup['output_file'], indent=2)
+                setup['output_file'].close()
+
     except Exception as e:
         print(f"Exception {e}")
     return 0
