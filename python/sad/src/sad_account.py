@@ -44,6 +44,7 @@ class SadAccountInfo(object):
     @classmethod
     def _from_single(cls, data: dict, acc_key: PublicKey) -> list:
         """convert single base64 result map to a single SadAccountInfo object"""
+        print(f"Single account dict = {data['owner']}")
         return [SadAccountInfo(data, acc_key)]
 
     @classmethod

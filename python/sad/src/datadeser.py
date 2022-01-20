@@ -244,22 +244,31 @@ class Tree(NodeWithChildren):
         self._name = [*in_dict][0]
         self._type = 'tree'
         self._children = []
+        self._children_names = []
         if isinstance(in_dict[self._name], list):
             for list_item in in_dict[self._name]:
                 if isinstance(list_item, dict):
-                    for _, y in list_item.items():
-                        self._children.append(parse(y))
+                    for k, v in list_item.items():
+                        self._children_names.append(k)
+                        self._children.append(parse(v))
                 else:
                     raise ValueError(f'Expected dict found {type(list_item)}')
         else:
             raise ValueError(
                 f'Expected list found {type(in_dict[self._name])}')
 
-    def deser(self, in_stream: BytesIO) -> list:
+    def deser(self, account: str, program: str, in_stream: BytesIO) -> list:
         result = []
+        index = 0
+        result_dict = {
+            "account_key": account,
+            "account_program_key": program
+        }
         for c in self.children:
             c.deser(in_stream, result)
-        return result
+            result_dict[self._children_names[index]] = result[index]
+            index += 1
+        return result_dict
 
 
 _BIG_MAP = {
@@ -306,9 +315,12 @@ class Deserializer():
         """Describe the tree"""
         self.tree.describe()
 
-    def deser(self, in_stream: BytesIO) -> list:
+    def to_json(self, in_data: list):
+        pass
+
+    def deser(self, account: str, program: str, in_stream: BytesIO) -> list:
         """Deserialize the inbound bytes"""
-        return self.tree.deser(in_stream)
+        return self.tree.deser(account, program, in_stream)
 
 
 def deserializer(file_name: Path) -> Deserializer:

@@ -1,6 +1,6 @@
 """command line argument parser
-sad <OPTIONS> account <-k keyfile/-s pubkey> <-o outfile> <-f format>
-sad <OPTIONS> program <-k keyfile/-s pubkey> <-o outfile> <-f format>
+sad <OPTIONS> account <-k keyfile/-s pubkey> <-o output_type> <-f filename>
+sad <OPTIONS> program <-k keyfile/-s pubkey> <-o output_type> <-f filename>
 """
 
 import argparse
@@ -10,6 +10,7 @@ from pathlib import Path
 from solana.keypair import Keypair
 from solana.publickey import PublicKey
 from solana.rpc.api import Client
+import sys
 from typing import Any
 
 
@@ -49,6 +50,20 @@ def _sad_cmd_parser(in_cfg: Config):
     subparsers = parser.add_subparsers(
         help='Data from', dest='action')
     parent_parser = argparse.ArgumentParser(add_help=False)
+
+    parent_parser.add_argument('-o', '--output',
+                               help='Sets output',
+                               choices=['stdout', 'json'],
+                               default='stdout',
+                               dest='output',
+                               required=False,
+                               action='store')
+
+    parent_parser.add_argument('-f', '--filename',
+                               help='Set filename for output if json',
+                               dest='filename',
+                               required=False,
+                               action='store')
 
     parent_parser.add_argument('-d', '--declfile',
                                help='YAML data declaration file',
@@ -92,12 +107,16 @@ def _sad_cmd_parser(in_cfg: Config):
                                            help='Deserialize all program owned accounts')
     return parser
 
+# Sample data definitions
+
 
 _SAMPLE_KEY_MAP = {
     "user1": "../../samples/keys/user1_account.json",
     "user2": "../../samples/keys/user2_account.json",
     "prog": "../../samples/keys/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.json"
 }
+
+_SAMP_DESC = "../../samples/yamldecls/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml"
 
 
 def sad_command_line() -> dict:
@@ -108,8 +127,8 @@ def sad_command_line() -> dict:
     cfg = Config()
     cmd_target = dict()
     cmdparser = _sad_cmd_parser(cfg)
-    args = cmdparser.parse_args()
-    samp_desc = "../../samples/yamldecls/SampGgdt3wioaoMZhC6LTSbg4pnuvQnSfJpDYeuXQBv.yml"
+    args = cmdparser.parse_args(args=None if sys.argv[1:] else ['--help'])
+
     # print(args)
 
     # Version is quick exit
@@ -144,12 +163,24 @@ def sad_command_line() -> dict:
 
     # Descriptor
     if args.sampkey is not None and args.decl is None:
-        cmd_target['data_desc'] = deserializer(Path(samp_desc))
+        cmd_target['data_desc'] = deserializer(Path(_SAMP_DESC))
     else:
         cmd_target['data_desc'] = deserializer(Path(args.decl))
 
     # Action
     cmd_target['action'] = args.action
+
+    cmd_target['output_type'] = 'stdout'
+    cmd_target['output_file'] = None
+
+    # Output
+    if args.output == 'json':
+        if args.filename is None:
+            raise ValueError(
+                "Expected '-f' or '-filename' argument when using -o json")
+        else:
+            cmd_target['output_type'] = 'json'
+            cmd_target['output_file'] = args.filename
 
     return cmd_target
 

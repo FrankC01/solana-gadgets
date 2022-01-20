@@ -6,8 +6,9 @@ Command line tool that takes a binary data string from Solana
 account along with a yaml file describing the data and
 generates a deserialized output"""
 
-import io
 from cmdline import sad_command_line
+import io
+import json
 from sad_account import SadAccountInfo
 
 
@@ -31,14 +32,16 @@ def main():
             accounts = SadAccountInfo.program_accounts(
                 setup['client'], setup['public_key'], setup['confirmation'])
         if accounts:
+            acc_list = []
             for acc in accounts:
                 if acc.data:
-                    print(
-                        f"Account: {acc.account_key} {setup['data_desc'].deser(io.BytesIO(acc.data))}")
+                    acc_list.append(setup['data_desc'].deser(
+                        str(acc.account_key), str(acc.owner_key), io.BytesIO(acc.data)))
                 else:
                     print(f"Empty data for {setup['public_key']}")
+            print(json.dumps(acc_list, indent=4))
     except Exception as e:
-        print(f"Terminating due to exception {e}")
+        print(f"Exception {e}")
     return 0
 
 
