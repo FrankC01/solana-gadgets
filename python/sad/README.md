@@ -59,6 +59,7 @@ Account User 2 data, output defaults to stdout:
 
 ```bash
 src/sad.py account -s user2
+
 [
   {
     "account_key": "5gMsBeLmPkwEKQ1H2AwceAPasXLyZ4tvWGCYR59qf47U",
@@ -77,7 +78,7 @@ src/sad.py account -s user2
 All accounts data owned by program, output defaults to stdout:
 
 ```bash
-cargo run -- program -s prog
+src/sad.py program -s prog
 
 [
   {
