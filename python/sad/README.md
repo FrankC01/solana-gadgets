@@ -74,9 +74,6 @@ src/sad.py account -s user2
 ]
 ```
 
-To see all accounts owned by a program:
-```bash
-src/sad.py program -s prog
 All accounts data owned by program, output defaults to stdout:
 
 ```bash
