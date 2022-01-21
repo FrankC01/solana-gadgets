@@ -1,9 +1,9 @@
 //! @brief Main entry poiint for CLI
 
+use clparse::get_account_and_descriptor;
+
 use {
-    clparse::get_target_publickey,
     desertree::Deseriaizer,
-    gadgets_common::load_yaml_file,
     sadout::{SadJsonOutput, SadOutput, SadSysOutput},
     solana_clap_utils::{input_validators::normalize_to_url_if_moniker, keypair::DefaultSigner},
     solana_client::rpc_client::RpcClient,
@@ -71,14 +71,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Arguments specific to deserialization
 
     // Setup the account or program public key
-    let target_pubkey = get_target_publickey(matches).unwrap();
+    let (target_pubkey, indecl) = get_account_and_descriptor(matches);
+    // let target_pubkey = get_target_publickey(matches);
 
-    // Get the deserialization descriptor
-    let descriptor_file_name = matches.value_of("decl").unwrap();
-    let indecl = load_yaml_file(descriptor_file_name).unwrap_or_else(|err| {
-        eprintln!("File error: On {} {}", descriptor_file_name, err);
-        exit(1);
-    });
+    // // Get the deserialization descriptor
+    // let descriptor_file_name = matches.value_of("decl").unwrap();
+    // let indecl = load_yaml_file(descriptor_file_name).unwrap_or_else(|err| {
+    //     eprintln!("File error: On {} {}", descriptor_file_name, err);
+    //     exit(1);
+    // });
 
     // Setup the deserialization tree
     let destree = Deseriaizer::new(&indecl[0]);

@@ -32,12 +32,30 @@ impl SadSysOutput {
 
 impl SadOutput for SadSysOutput {
     fn write(&self) -> SadApplicationResult<()> {
+        let mut json_vector = json!([]);
         for blocks in self.deserialization_result().context_vec() {
-            println!(
-                "{}",
-                to_string_pretty(&self.deser.to_json(blocks.deserialize_list())).unwrap()
+            // println!(
+            //     "{}",
+            //     to_string_pretty(&self.deser.to_json(blocks.deserialize_list())).unwrap()
+            // );
+            let mut jmap = json!({});
+            let jmap_raw = jmap.as_object_mut().unwrap();
+            jmap_raw.insert(
+                "account_key".to_string(),
+                json!(blocks.pubkey().to_string()),
             );
+            jmap_raw.insert(
+                "account_program_key".to_string(),
+                json!(blocks.account().owner.to_string()),
+            );
+            jmap_raw.insert(
+                "data".to_string(),
+                self.deser.to_json(blocks.deserialize_list()),
+            );
+            json_vector.as_array_mut().unwrap().push(jmap);
         }
+        println!("{}", to_string_pretty(&json_vector).unwrap());
+
         Ok(())
     }
 
