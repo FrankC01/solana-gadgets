@@ -1,0 +1,18 @@
+[package]
+name = "scfsd"
+description="Solana Cluster Feature Set Diff"
+repository = "https://github.com/FrankC01/solana-gadgets/tree/main/rust"
+categories = ["command-line-utilities", "solana"]
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = { version = "3.0.10", features = ["cargo"] }
+semver = "1.0.4"
+solana-sdk = "1.9.4"
+solana-client = "1.9.4"
+
+[dev-dependencies]
+solana-validator = "1.9.4"

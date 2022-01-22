@@ -14,8 +14,9 @@ use {
 };
 
 /// Construct the cli input model and parse command line
-pub fn parse_command_line() -> ArgMatches<'static> {
+pub fn parse_command_line() -> App<'static, 'static> {
     App::new(crate_name!())
+        .global_setting(AppSettings::ArgRequiredElseHelp)
         .about(crate_description!())
         .version(crate_version!())
         .setting(AppSettings::ArgRequiredElseHelp)
@@ -114,7 +115,6 @@ pub fn parse_command_line() -> ArgMatches<'static> {
         .group(
             ArgGroup::with_name("key_flags").args(&["keypair", "pkstr", "sampkey"]), // .required(true),
         )
-        .get_matches()
 }
 
 lazy_static! {

@@ -2,6 +2,7 @@
 members = [
     "gadgets-common",
     "sad",
+    "scfsd",
 ]
 
 exclude = []

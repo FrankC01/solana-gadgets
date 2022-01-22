@@ -29,9 +29,14 @@ struct Config {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let app_matches = clparse::parse_command_line();
+    let app = clparse::parse_command_line();
+    let app_matches = app.get_matches();
     let (sub_command, sub_matches) = app_matches.subcommand();
-    let matches = sub_matches.unwrap();
+    let matches = sub_matches.unwrap_or_else(|| {
+        clparse::parse_command_line().print_help().unwrap();
+        println!("");
+        exit(-1);
+    });
     let mut wallet_manager: Option<Arc<RemoteWalletManager>> = None;
     let config = {
         let cli_config = if let Some(config_file) = matches.value_of("config_file") {
