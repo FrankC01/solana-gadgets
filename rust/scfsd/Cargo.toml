@@ -10,6 +10,7 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "3.0.10", features = ["cargo"] }
+lazy_static = "1.4.0"
 semver = "1.0.4"
 solana-sdk = "1.9.4"
 solana-client = "1.9.4"
