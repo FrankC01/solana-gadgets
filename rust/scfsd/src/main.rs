@@ -4,7 +4,7 @@
 // Local will always have all features enabled when running,
 // in solana-test-validator all features are enabled
 use clparse::build_command_line_parser;
-use utils::{initialize_grid, update_grid_for, SCFSD_CLUSTER_LIST};
+use utils::{initialize_grid, update_grid_for, ScfsdMatrix, SCFSD_CLUSTER_LIST};
 
 mod clparse;
 mod utils;
@@ -31,9 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match matches.value_of("filename") {
         Some(_output_filename) => todo!(),
         None => {
-            for (key, cluster_features) in grid {
-                println!("{:?} -> {:?}", key, cluster_features)
-            }
+            println!("{}", ScfsdMatrix::from_grid(&grid))
         }
     }
 

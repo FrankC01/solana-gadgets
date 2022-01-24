@@ -1,5 +1,5 @@
 //! @brief solana-features-diff utility functions
-
+use console::{style, StyledObject};
 use lazy_static::*;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
@@ -7,6 +7,7 @@ use solana_sdk::{
 };
 use std::collections::HashMap;
 
+/// Cluster feature status
 #[derive(Debug, Clone, PartialEq)]
 pub enum FeatureStatus {
     Inactive,
@@ -14,6 +15,7 @@ pub enum FeatureStatus {
     Active(Slot),
 }
 
+/// Container for feature status across multiple clusters
 #[derive(Debug, Clone, PartialEq)]
 pub struct FeatureState {
     pub description: String,
@@ -24,11 +26,15 @@ pub struct FeatureState {
 pub type ScfsdGrid = HashMap<Pubkey, FeatureState>;
 
 lazy_static! {
+    /// Easy cluster aliases
     pub static ref SCFSD_LOCAL: String = "Local".to_string();
     pub static ref SCFSD_DEVNET: String = "Devnet".to_string();
     pub static ref SCFSD_TESTNET: String = "Testnet".to_string();
     pub static ref SCFSD_MAINNET: String = "Mainnet".to_string();
+
     /// Easy url lookup map (name -> url)
+    /// subject to change! Alternative would be to
+    /// cycle changing the configuration and interogatting the Rcp URL
     pub static ref SCFSD_URL_LOOKUPS: HashMap<String, String> = {
         let mut urls = HashMap::<String, String>::new();
         urls.insert(
@@ -102,8 +108,6 @@ fn update_grid_status_entry(
     status: FeatureStatus,
 ) {
     grid.get_mut(akey).unwrap().status[index] = status;
-    // let fset = &mut grid.get_mut(akey).unwrap().status;
-    // fset[index] = status;
 }
 
 /// Iterates through the feature results for a given cluster and
@@ -120,15 +124,114 @@ pub fn update_grid_for(
         .enumerate()
     {
         let apk = SCFSD_FEATURE_PKS[index];
+        // If account is valid, get status and update grid
         if let Some(acc) = account {
             if let Some(status) = status_from_account(acc) {
                 update_grid_status_entry(grid, &apk, position, status);
                 continue;
             }
         }
+        // Defaults to Inactive, update grid
         update_grid_status_entry(grid, &apk, position, FeatureStatus::Inactive);
     }
     Ok(())
+}
+
+/// Transmuate state arrary to boolean array
+fn states_to_bools(fstate: &FeatureState) -> Vec<bool> {
+    fstate
+        .status
+        .iter()
+        .fold(Vec::<bool>::new(), |mut acc, xs| {
+            acc.push(match xs {
+                FeatureStatus::Inactive | FeatureStatus::Pending => false,
+                _ => true,
+            });
+            acc
+        })
+}
+
+#[derive(Debug)]
+struct ScfsdMatrixRow<'a> {
+    key: &'a Pubkey,
+    local_status: bool,
+    dev_status: bool,
+    test_status: bool,
+    main_status: bool,
+    desc: &'a String,
+}
+
+impl<'a> ScfsdMatrixRow<'a> {
+    pub fn from_feature_state(pkey: &'a Pubkey, fstate: &'a FeatureState) -> Self {
+        let fstob = states_to_bools(&fstate);
+        Self {
+            key: pkey,
+            local_status: fstob[0],
+            dev_status: fstob[1],
+            test_status: fstob[2],
+            main_status: fstob[3],
+            desc: &fstate.description,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ScfsdMatrix<'a> {
+    rows: Vec<ScfsdMatrixRow<'a>>,
+}
+
+impl<'a> ScfsdMatrix<'a> {
+    pub fn from_grid(grid: &'a ScfsdGrid) -> Self {
+        let mut matrix = Vec::<ScfsdMatrixRow>::new();
+        for (pkey, state) in grid {
+            matrix.push(ScfsdMatrixRow::from_feature_state(pkey, state))
+        }
+        Self { rows: matrix }
+    }
+}
+
+impl std::fmt::Display for ScfsdMatrix<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fn fill_status(status: bool) -> StyledObject<String> {
+            let yes = " ".to_string();
+            let no = "  ".to_string();
+            if status {
+                style(yes).bg(console::Color::Green)
+            } else {
+                style(no).bg(console::Color::Red)
+            }
+        }
+        writeln!(
+            f,
+            "{}",
+            style(format!(
+                "\n{:<44} | {:^8} | {:^8} |{:^8} |{:^8} | {:<95}",
+                "Feature ID (PK)", "Local", "Devnet", "Testnet", "Mainnet", "Description"
+            ))
+            .bold()
+        )?;
+        writeln!(
+            f,
+            "{}",
+            style(format!(
+                "{:-<44} | {:-^8} | {:-^8} |{:-^8} |{:-^8} | {:-<95}",
+                "", "", "", "", "", ""
+            )) // .bold()
+        )?;
+        for row in &self.rows {
+            writeln!(
+                f,
+                "{:<44} | {:^8} | {:^8} |{:^8} |{:^8} | {}",
+                row.key.to_string(),
+                fill_status(row.local_status),
+                fill_status(row.dev_status),
+                fill_status(row.test_status),
+                fill_status(row.main_status),
+                row.desc,
+            )?;
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -143,5 +246,12 @@ mod tests {
         for (p, v) in grid {
             println!("{:?} = {:?}", p, v);
         }
+    }
+
+    #[test]
+    fn test_grid_formatting() {
+        let grid = initialize_grid();
+        let matrix = ScfsdMatrix::from_grid(&grid);
+        println!("{}", matrix);
     }
 }
