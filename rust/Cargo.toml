@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "gadgets-common",
+    "gadgets-scfs",
     "sad",
     "scfsd",
 ]

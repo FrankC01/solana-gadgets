@@ -1,6 +1,10 @@
 //! @brief solana-features-diff utility functions
 use console::{style, StyledObject};
-use lazy_static::*;
+use gadgets_scfs::{
+    SCFS_DESCRIPTION, SCFS_DEVNET, SCFS_FEATURE_PKS, SCFS_HEADER_LIST, SCFS_LOCAL, SCFS_MAINNET,
+    SCFS_TESTNET, SCFS_URL_LOOKUPS,
+};
+
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     account::Account, clock::Slot, feature, feature_set::FEATURE_NAMES, pubkey::Pubkey,
@@ -24,53 +28,6 @@ pub struct FeatureState {
 
 /// Grid for cluster feature state types
 pub type ScfsdGrid = HashMap<Pubkey, FeatureState>;
-
-lazy_static! {
-    /// Easy cluster aliases
-    pub static ref SCFSD_LOCAL: String = "Local".to_string();
-    pub static ref SCFSD_DEVNET: String = "Devnet".to_string();
-    pub static ref SCFSD_TESTNET: String = "Testnet".to_string();
-    pub static ref SCFSD_MAINNET: String = "Mainnet".to_string();
-
-    /// Easy url lookup map (name -> url)
-    /// subject to change! Alternative would be to
-    /// cycle changing the configuration and interogatting the Rcp URL
-    pub static ref SCFSD_URL_LOOKUPS: HashMap<String, String> = {
-        let mut urls = HashMap::<String, String>::new();
-        urls.insert(
-            SCFSD_LOCAL.clone(),
-            "http://localhost:8899".to_string(),
-        );
-        urls.insert(
-            SCFSD_DEVNET.clone(),
-            "https://api.devnet.solana.com".to_string(),
-        );
-        urls.insert(
-            SCFSD_TESTNET.clone(),
-            "https://api.testnet.solana.com".to_string(),
-        );
-        urls.insert(
-            SCFSD_MAINNET.clone(),
-            "https://api.mainnet-beta.solana.com".to_string(),
-        );
-        urls
-    };
-    /// List of cluster aliases
-    pub static ref SCFSD_CLUSTER_LIST: Vec<String> = {
-        let mut clusters = Vec::<String>::new();
-        clusters.push(SCFSD_LOCAL.clone());
-        clusters.push(SCFSD_DEVNET.clone());
-        clusters.push(SCFSD_TESTNET.clone());
-        clusters.push(SCFSD_MAINNET.clone());
-        clusters
-    };
-
-    /// Features public keys
-    pub static ref SCFSD_FEATURE_PKS: Vec<Pubkey> = {
-        FEATURE_NAMES.keys().cloned().collect::<Vec<Pubkey>>()
-    };
-
-}
 
 /// Return a baseline clone which  includes the local state
 pub fn initialize_grid() -> ScfsdGrid {
@@ -117,13 +74,13 @@ pub fn update_grid_for(
     cluster_alias: &String,
     grid: &mut ScfsdGrid,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let rcpclient = RpcClient::new(SCFSD_URL_LOOKUPS.get(cluster_alias).unwrap().clone());
+    let rcpclient = RpcClient::new(SCFS_URL_LOOKUPS.get(cluster_alias).unwrap().clone());
     for (index, account) in rcpclient
-        .get_multiple_accounts(&SCFSD_FEATURE_PKS)?
+        .get_multiple_accounts(&SCFS_FEATURE_PKS)?
         .into_iter()
         .enumerate()
     {
-        let apk = SCFSD_FEATURE_PKS[index];
+        let apk = SCFS_FEATURE_PKS[index];
         // If account is valid, get status and update grid
         if let Some(acc) = account {
             if let Some(status) = status_from_account(acc) {
@@ -178,6 +135,8 @@ impl<'a> ScfsdMatrixRow<'a> {
 #[derive(Debug)]
 pub struct ScfsdMatrix<'a> {
     rows: Vec<ScfsdMatrixRow<'a>>,
+    includes: Option<Vec<String>>,
+    header: Vec<String>,
 }
 
 impl<'a> ScfsdMatrix<'a> {
@@ -186,8 +145,15 @@ impl<'a> ScfsdMatrix<'a> {
         for (pkey, state) in grid {
             matrix.push(ScfsdMatrixRow::from_feature_state(pkey, state))
         }
-        Self { rows: matrix }
+        Self {
+            rows: matrix,
+            includes: None,
+            header: SCFS_HEADER_LIST.to_vec(),
+        }
     }
+    // pub fn from_includes(includes: Option<Vec<String>>) -> Self {
+
+    // }
 }
 
 impl std::fmt::Display for ScfsdMatrix<'_> {
@@ -206,7 +172,12 @@ impl std::fmt::Display for ScfsdMatrix<'_> {
             "{}",
             style(format!(
                 "\n{:<44} | {:^8} | {:^8} |{:^8} |{:^8} | {:<95}",
-                "Feature ID (PK)", "Local", "Devnet", "Testnet", "Mainnet", "Description"
+                "Feature ID (PK)",
+                *SCFS_LOCAL,
+                *SCFS_DEVNET,
+                *SCFS_TESTNET,
+                *SCFS_MAINNET,
+                *SCFS_DESCRIPTION
             ))
             .bold()
         )?;

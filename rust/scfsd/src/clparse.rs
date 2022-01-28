@@ -6,7 +6,15 @@ use clap::{app_from_crate, App, AppSettings, Arg};
 pub fn build_command_line_parser() -> App<'static> {
     app_from_crate!()
         .global_setting(AppSettings::DeriveDisplayOrder)
-        // .global_setting(AppSettings::ArgRequiredElseHelp)
+        // Limit cluster fetching
+        .arg(
+            Arg::new("include")
+                .long("include")
+                .short('i')
+                .takes_value(true)
+                .help("Selective choices"),
+        )
+        // Output to CSV
         .arg(
             Arg::new("filename")
                 .long("filename")
