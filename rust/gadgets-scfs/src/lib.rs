@@ -24,7 +24,7 @@ use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     account::Account, clock::Slot, feature, feature_set::FEATURE_NAMES, pubkey::Pubkey,
 };
-use std::{borrow::Borrow, collections::HashMap};
+use std::collections::HashMap;
 
 pub mod scfs_errors;
 
@@ -81,13 +81,6 @@ lazy_static! {
     pub static ref SCFS_FEATURE_PKS: Vec<Pubkey> = {
         FEATURE_NAMES.keys().cloned().collect::<Vec<Pubkey>>()
     };
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum ScfsKeepIfState {
-    All,
-    Active,
-    Inactive,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -149,6 +142,15 @@ impl ScfsRow {
             feature_status: Vec::<ScfsStatus>::new(),
         }
     }
+    pub fn key(&self) -> &Pubkey {
+        &self.feature_key
+    }
+    pub fn status(&self) -> &Vec<ScfsStatus> {
+        &self.feature_status
+    }
+    pub fn desc(&self) -> &Option<String> {
+        &self.feature_description
+    }
     // Borrow the feature status
     fn push_feature_status(&mut self, status: ScfsStatus) {
         self.feature_status.push(status)
@@ -207,11 +209,14 @@ impl ScfsMatrix {
     }
 
     /// Validate the criteria for building the matrix
+    /// TODO - Build filter predicates
     fn validate_and_complete_criteria(in_criteria: &ScfsCriteria) -> ScfsResult<ScfsCriteria> {
         if in_criteria.features.is_none() {
             Err(ScfsError::NoCriteriaFeaturesError)
         } else {
             let mut bad_elements = Vec::<String>::new();
+            // Its ok to not have clusters but they must be
+            // a recognized cluster name
             if let Some(clusters) = &in_criteria.clusters {
                 let matching = clusters
                     .iter()
@@ -226,11 +231,13 @@ impl ScfsMatrix {
                     .count();
                 if matching != clusters.len() {
                     return Err(ScfsError::UnrecognizedCriteriaTypeError {
-                        bad: bad_elements,
+                        element: bad_elements,
                         ctype: "cluster",
                     });
                 }
             }
+            // Not having any fields is bad and if there
+            // are fields they must be valid
             if let Some(fields) = &in_criteria.fields {
                 let matching = fields
                     .iter()
@@ -245,11 +252,29 @@ impl ScfsMatrix {
                     .count();
                 if matching != fields.len() {
                     return Err(ScfsError::UnrecognizedCriteriaTypeError {
-                        bad: bad_elements,
+                        element: bad_elements,
                         ctype: "field",
                     });
                 }
+            } else {
+                return Err(ScfsError::UnrecognizedCriteriaTypeError {
+                    element: vec!["empty".to_string()],
+                    ctype: "No fields.",
+                });
             }
+            if !in_criteria
+                .fields
+                .as_ref()
+                .unwrap()
+                .contains(&SCFS_FEATURE_ID)
+            {
+                return Err(ScfsError::UnrecognizedCriteriaTypeError {
+                    element: vec![(&SCFS_FEATURE_ID).to_string()],
+                    ctype: "Missing minimally required field.",
+                });
+            }
+            // Must have features and must match from system
+            // master list
             if let Some(features) = &in_criteria.features {
                 let matching = features
                     .iter()
@@ -264,10 +289,29 @@ impl ScfsMatrix {
                     .count();
                 if matching != features.len() {
                     return Err(ScfsError::UnrecognizedCriteriaTypeError {
-                        bad: bad_elements,
+                        element: bad_elements,
                         ctype: "feature",
                     });
                 }
+            } else {
+                return Err(ScfsError::UnrecognizedCriteriaTypeError {
+                    element: vec!["empty".to_string()],
+                    ctype: "No features",
+                });
+            }
+            // Check cluster match has a field analog
+            for c in in_criteria.clusters.as_ref().unwrap() {
+                if let Some(fields) = &in_criteria.fields {
+                    if !fields.contains(c) {
+                        bad_elements.push(c.to_string());
+                    }
+                }
+            }
+            if bad_elements.len() > 0 {
+                return Err(ScfsError::UnrecognizedCriteriaTypeError {
+                    element: bad_elements,
+                    ctype: "Clusters not declared in fields",
+                });
             }
             Ok(in_criteria.clone())
         }
@@ -448,12 +492,38 @@ mod tests {
         println!("{:?}", my_matrix);
     }
     #[test]
+    fn missing_required_field_fail() {
+        let mut faux_vec = Vec::<String>::new();
+        faux_vec.push(SCFS_DEVNET.to_string());
+        let my_matrix = ScfsMatrix::new(Some(ScfsCriteria {
+            fields: Some(faux_vec),
+            ..Default::default()
+        }));
+        assert!(my_matrix.is_err());
+        println!("{:?}", my_matrix);
+    }
+    #[test]
     fn bad_clusters_fail() {
         let faux_field = "funny_business".to_string();
         let mut faux_vec = Vec::<String>::new();
         faux_vec.push(faux_field);
         let my_matrix = ScfsMatrix::new(Some(ScfsCriteria {
             clusters: Some(faux_vec),
+            ..Default::default()
+        }));
+        assert!(my_matrix.is_err());
+        println!("{:?}", my_matrix);
+    }
+    #[test]
+    fn bad_cluster_field_fail() {
+        let mut field_vec = Vec::<String>::new();
+        let mut cluster_vec = Vec::<String>::new();
+        field_vec.push(SCFS_HEADER_LIST[0].clone());
+        field_vec.push(SCFS_LOCAL.clone());
+        cluster_vec.push(SCFS_DEVNET.clone());
+        let my_matrix = ScfsMatrix::new(Some(ScfsCriteria {
+            clusters: Some(cluster_vec),
+            fields: Some(field_vec),
             ..Default::default()
         }));
         assert!(my_matrix.is_err());

@@ -1,228 +1,191 @@
 //! @brief solana-features-diff utility functions
 use console::{style, StyledObject};
-use gadgets_scfs::{
-    SCFS_DESCRIPTION, SCFS_DEVNET, SCFS_FEATURE_PKS, SCFS_HEADER_LIST, SCFS_LOCAL, SCFS_MAINNET,
-    SCFS_TESTNET, SCFS_URL_LOOKUPS,
-};
-
-use solana_client::rpc_client::RpcClient;
-use solana_sdk::{
-    account::Account, clock::Slot, feature, feature_set::FEATURE_NAMES, pubkey::Pubkey,
-};
-use std::collections::HashMap;
-
-/// Cluster feature status
-#[derive(Debug, Clone, PartialEq)]
-pub enum FeatureStatus {
-    Inactive,
-    Pending,
-    Active(Slot),
-}
-
-/// Container for feature status across multiple clusters
-#[derive(Debug, Clone, PartialEq)]
-pub struct FeatureState {
-    pub description: String,
-    pub status: [FeatureStatus; 4],
-}
-
-/// Grid for cluster feature state types
-pub type ScfsdGrid = HashMap<Pubkey, FeatureState>;
-
-/// Return a baseline clone which  includes the local state
-pub fn initialize_grid() -> ScfsdGrid {
-    let mut lstate = ScfsdGrid::new();
-    for (pubkey, desc) in &*FEATURE_NAMES {
-        lstate.insert(
-            pubkey.clone(),
-            FeatureState {
-                description: desc.to_string(),
-                status: [
-                    FeatureStatus::Active(0),
-                    FeatureStatus::Pending,
-                    FeatureStatus::Pending,
-                    FeatureStatus::Pending,
-                ],
-            },
-        );
-    }
-    lstate
-}
-
-/// Get the status of a particular feature account
-fn status_from_account(account: Account) -> Option<FeatureStatus> {
-    feature::from_account(&account).map(|feature| match feature.activated_at {
-        None => FeatureStatus::Pending,
-        Some(activation_slot) => FeatureStatus::Active(activation_slot),
-    })
-}
-
-/// Update a status at index in the grid entry
-fn update_grid_status_entry(
-    grid: &mut ScfsdGrid,
-    akey: &Pubkey,
-    index: usize,
-    status: FeatureStatus,
-) {
-    grid.get_mut(akey).unwrap().status[index] = status;
-}
-
-/// Iterates through the feature results for a given cluster and
-/// sets the grid entry accordingly
-pub fn update_grid_for(
-    position: usize,
-    cluster_alias: &String,
-    grid: &mut ScfsdGrid,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let rcpclient = RpcClient::new(SCFS_URL_LOOKUPS.get(cluster_alias).unwrap().clone());
-    for (index, account) in rcpclient
-        .get_multiple_accounts(&SCFS_FEATURE_PKS)?
-        .into_iter()
-        .enumerate()
-    {
-        let apk = SCFS_FEATURE_PKS[index];
-        // If account is valid, get status and update grid
-        if let Some(acc) = account {
-            if let Some(status) = status_from_account(acc) {
-                update_grid_status_entry(grid, &apk, position, status);
-                continue;
-            }
-        }
-        // Defaults to Inactive, update grid
-        update_grid_status_entry(grid, &apk, position, FeatureStatus::Inactive);
-    }
-    Ok(())
-}
-
-/// Transmuate state arrary to boolean array
-fn states_to_bools(fstate: &FeatureState) -> Vec<bool> {
-    fstate
-        .status
-        .iter()
-        .fold(Vec::<bool>::new(), |mut acc, xs| {
-            acc.push(match xs {
-                FeatureStatus::Inactive | FeatureStatus::Pending => false,
-                _ => true,
-            });
-            acc
-        })
-}
+use gadgets_scfs::{ScfsMatrix, ScfsRow, ScfsStatus, SCFS_DESCRIPTION, SCFS_FEATURE_ID};
 
 #[derive(Debug)]
-struct ScfsdMatrixRow<'a> {
-    key: &'a Pubkey,
-    local_status: bool,
-    dev_status: bool,
-    test_status: bool,
-    main_status: bool,
-    desc: &'a String,
+struct FieldFormatter {
+    field_name: String,
+    cluster_index: usize,
+    is_feature_id: bool,
+    is_description: bool,
 }
 
-impl<'a> ScfsdMatrixRow<'a> {
-    pub fn from_feature_state(pkey: &'a Pubkey, fstate: &'a FeatureState) -> Self {
-        let fstob = states_to_bools(&fstate);
-        Self {
-            key: pkey,
-            local_status: fstob[0],
-            dev_status: fstob[1],
-            test_status: fstob[2],
-            main_status: fstob[3],
-            desc: &fstate.description,
-        }
-    }
-}
+impl FieldFormatter {
+    fn build_formats(matrix: &ScfsMatrix) -> Vec<FieldFormatter> {
+        let mut fmthdr = Vec::<FieldFormatter>::new();
+        let mut cluster_pos = 0usize;
 
-#[derive(Debug)]
-pub struct ScfsdMatrix<'a> {
-    rows: Vec<ScfsdMatrixRow<'a>>,
-    includes: Option<Vec<String>>,
-    header: Vec<String>,
-}
-
-impl<'a> ScfsdMatrix<'a> {
-    pub fn from_grid(grid: &'a ScfsdGrid) -> Self {
-        let mut matrix = Vec::<ScfsdMatrixRow>::new();
-        for (pkey, state) in grid {
-            matrix.push(ScfsdMatrixRow::from_feature_state(pkey, state))
-        }
-        Self {
-            rows: matrix,
-            includes: None,
-            header: SCFS_HEADER_LIST.to_vec(),
-        }
-    }
-    // pub fn from_includes(includes: Option<Vec<String>>) -> Self {
-
-    // }
-}
-
-impl std::fmt::Display for ScfsdMatrix<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        fn fill_status(status: bool) -> StyledObject<String> {
-            let yes = " ".to_string();
-            let no = "  ".to_string();
-            if status {
-                style(yes).bg(console::Color::Green)
+        for field in matrix.get_criteria().fields.as_ref().unwrap() {
+            if field == &*SCFS_FEATURE_ID {
+                fmthdr.push(FieldFormatter {
+                    field_name: field.clone(),
+                    cluster_index: 0,
+                    is_feature_id: true,
+                    is_description: false,
+                })
+            } else if field == &*SCFS_DESCRIPTION {
+                fmthdr.push(FieldFormatter {
+                    field_name: field.clone(),
+                    cluster_index: 0,
+                    is_feature_id: false,
+                    is_description: true,
+                })
             } else {
-                style(no).bg(console::Color::Red)
+                fmthdr.push(FieldFormatter {
+                    field_name: field.clone(),
+                    cluster_index: cluster_pos,
+                    is_feature_id: false,
+                    is_description: false,
+                });
+                cluster_pos += 1;
             }
         }
+        fmthdr
+    }
+}
+
+#[derive(Debug)]
+struct MatrixStdOut<'a> {
+    matrix: &'a ScfsMatrix,
+    fmthdr: Vec<FieldFormatter>,
+}
+
+impl<'a> MatrixStdOut<'a> {
+    fn new(matrix: &'a ScfsMatrix) -> Self {
+        let fmt = FieldFormatter::build_formats(matrix);
+        Self {
+            matrix,
+            fmthdr: fmt,
+        }
+    }
+}
+
+fn fill_format_tuple(
+    row: &ScfsRow,
+    field_fmt: &Vec<FieldFormatter>,
+) -> (
+    String,
+    StyledObject<String>,
+    StyledObject<String>,
+    StyledObject<String>,
+    StyledObject<String>,
+    String,
+) {
+    let blank = "".to_string();
+    let pk = row.key().to_string();
+    let mut local_state = style(blank.clone()).bg(console::Color::Black);
+    let mut dev_state = style(blank.clone()).bg(console::Color::Black);
+    let mut test_state = style(blank.clone()).bg(console::Color::Black);
+    let mut main_state = style(blank.clone()).bg(console::Color::Black);
+    let mut desc = "".to_string();
+    fn fill_status(status: &ScfsStatus) -> StyledObject<String> {
+        let yes = " ".to_string();
+        let no = "  ".to_string();
+        match status {
+            ScfsStatus::Inactive => style(no).bg(console::Color::Red),
+            ScfsStatus::Pending => style(no).bg(console::Color::Yellow),
+            ScfsStatus::Active(_) => style(yes).bg(console::Color::Green),
+        }
+    }
+    let row_status = row.status();
+    for ff in field_fmt {
+        match ff.field_name.as_str() {
+            "description" => {
+                if let Some(description) = row.desc() {
+                    desc = description.clone();
+                }
+            }
+            "local" => {
+                if ff.cluster_index < row_status.len() {
+                    local_state = fill_status(&row_status[ff.cluster_index]);
+                }
+            }
+            "devnet" => {
+                if ff.cluster_index < row_status.len() {
+                    dev_state = fill_status(&row_status[ff.cluster_index]);
+                }
+            }
+            "testnet" => {
+                if ff.cluster_index < row_status.len() {
+                    test_state = fill_status(&row_status[ff.cluster_index]);
+                }
+            }
+            "mainnet" => {
+                if ff.cluster_index < row_status.len() {
+                    main_state = fill_status(&row_status[ff.cluster_index]);
+                }
+            }
+            _ => {}
+        }
+    }
+    (pk, local_state, dev_state, test_state, main_state, desc)
+}
+impl std::fmt::Display for MatrixStdOut<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Write header
+        for field in &self.fmthdr {
+            if field.is_feature_id {
+                write!(f, "{}", style(format!("{:<44} ", field.field_name)).bold())?;
+            } else if field.is_description {
+                write!(f, "{}", style(format!("| {:<95}", field.field_name)).bold())?;
+            } else {
+                write!(f, "{}", style(format!("| {:<8} ", field.field_name)).bold())?;
+            }
+        }
+        writeln!(f)?;
+        // Underline separator
         writeln!(
             f,
             "{}",
             style(format!(
-                "\n{:<44} | {:^8} | {:^8} |{:^8} |{:^8} | {:<95}",
-                "Feature ID (PK)",
-                *SCFS_LOCAL,
-                *SCFS_DEVNET,
-                *SCFS_TESTNET,
-                *SCFS_MAINNET,
-                *SCFS_DESCRIPTION
-            ))
-            .bold()
-        )?;
-        writeln!(
-            f,
-            "{}",
-            style(format!(
-                "{:-<44} | {:-^8} | {:-^8} |{:-^8} |{:-^8} | {:-<95}",
+                "{:-<44} | {:-^8} | {:-^8} | {:-^8} | {:-^8} | {:-<95}",
                 "", "", "", "", "", ""
-            )) // .bold()
+            ))
         )?;
-        for row in &self.rows {
+        // Data fields
+        for row in self.matrix.get_result_rows() {
+            let (pk, local, dev, test, main, desc) = fill_format_tuple(row, &self.fmthdr);
             writeln!(
                 f,
-                "{:<44} | {:^8} | {:^8} |{:^8} |{:^8} | {}",
-                row.key.to_string(),
-                fill_status(row.local_status),
-                fill_status(row.dev_status),
-                fill_status(row.test_status),
-                fill_status(row.main_status),
-                row.desc,
+                "{:<44} | {:^8} | {:^8} | {:^8} | {:^8} | {:<95}",
+                pk, local, dev, test, main, desc,
             )?;
+            // break;
         }
+
         Ok(())
     }
 }
 
+pub fn write_matrix_stdio(matrix: &ScfsMatrix) {
+    let mxout = MatrixStdOut::new(matrix);
+    println!("{}", mxout);
+}
+
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::utils::write_matrix_stdio;
+    use gadgets_scfs::{ScfsCriteria, ScfsMatrix, SCFS_DEVNET, SCFS_LOCAL};
 
     #[test]
-    fn test_update_grid_pass() {
-        let mut grid = initialize_grid();
-        let myurl = "Devnet".to_string();
-        update_grid_for(1usize, &myurl, &mut grid).unwrap();
-        for (p, v) in grid {
-            println!("{:?} = {:?}", p, v);
-        }
+    fn test_header_gen_pass() {
+        let mut cluster_vec = Vec::<String>::new();
+        cluster_vec.push(SCFS_LOCAL.to_string());
+        cluster_vec.push(SCFS_DEVNET.to_string());
+        let mut my_matrix = ScfsMatrix::new(Some(ScfsCriteria {
+            clusters: Some(cluster_vec),
+            ..Default::default()
+        }))
+        .unwrap();
+        assert!(my_matrix.run().is_ok());
+        write_matrix_stdio(&my_matrix);
     }
-
     #[test]
-    fn test_grid_formatting() {
-        let grid = initialize_grid();
-        let matrix = ScfsdMatrix::from_grid(&grid);
-        println!("{}", matrix);
+    fn formatting_test() {
+        let mut fs = [""; 5];
+        fs[2] = "yes";
+        println!("{:?}", fs);
+        let x = format!("{}", 1);
+        println!("{}", x)
     }
 }

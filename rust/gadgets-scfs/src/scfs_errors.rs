@@ -5,10 +5,10 @@ use thiserror::Error;
 pub enum ScfsError {
     #[error("Criteria must have at least Some feature keys")]
     NoCriteriaFeaturesError,
-    #[error("Criteria contains unrecognized {ctype} types {:?}")]
+    #[error("Error validatinig {ctype} invalid {:?}")]
     UnrecognizedCriteriaTypeError {
         ctype: &'static str,
-        bad: Vec<String>,
+        element: Vec<String>,
     },
 }
 
