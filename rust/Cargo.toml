@@ -4,6 +4,7 @@ members = [
     "gadgets-scfs",
     "sad",
     "scfsd",
+    "scfs-program",
 ]
 
 exclude = []
