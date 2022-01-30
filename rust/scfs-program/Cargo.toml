@@ -9,13 +9,16 @@ edition = "2021"
 test-bpf = []
 
 [dependencies]
-solana-program = "1.9.4"
+solana-program = {path = "../../../solana/sdk/program", version = "=1.10.0"}
 
 [dev-dependencies]
 assert_matches = "1.4.0"
-solana-program-test = "1.9.4"
-solana-sdk = "1.9.4"
-solana-logger = "1.9.4"
+solana-client = {path = "../../../solana/client", version = "=1.10.0"}
+solana-program-test = {path = "../../../solana/program-test", version = "=1.10.0"}
+solana-sdk = {path = "../../../solana/sdk", version = "=1.10.0"}
+solana-logger = {path = "../../../solana/logger", version = "=1.10.0"}
+solana-test-validator = { path = "../../../solana/test-validator", version = "=1.10.0" }
+
 
 [lib]
 crate-type = ["cdylib", "lib"]

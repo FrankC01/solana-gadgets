@@ -374,7 +374,7 @@ impl ScfsMatrix {
 
     /// Retrieve features with optional predicate that
     /// tests one or more cluster status results for inclusion
-    pub fn get_features(&self, f: Option<&dyn Fn(&ScfsRow) -> bool>) -> ScfsResult<Vec<&Pubkey>> {
+    pub fn get_features(&self, f: Option<&dyn Fn(&ScfsRow) -> bool>) -> ScfsResult<Vec<Pubkey>> {
         let predicate = match f {
             Some(p) => p,
             None => &ScfsMatrix::all,
@@ -383,7 +383,7 @@ impl ScfsMatrix {
             .get_result_rows()
             .iter()
             .filter(|r| predicate(r))
-            .map(|r| r.key())
+            .map(|r| r.key().clone())
             .collect())
     }
 }

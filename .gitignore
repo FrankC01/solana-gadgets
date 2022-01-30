@@ -6,6 +6,7 @@ __pycache__
 # Rust excludes
 target/
 Cargo.lock
+.ledger
 
 # Miscellaneous excludes
 *.csv
