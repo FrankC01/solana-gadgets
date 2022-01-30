@@ -14,32 +14,27 @@ impl FieldFormatter {
     fn build_formats(matrix: &ScfsMatrix) -> Vec<FieldFormatter> {
         let mut fmthdr = Vec::<FieldFormatter>::new();
         let mut cluster_pos = 0usize;
-
-        for field in matrix.get_criteria().fields.as_ref().unwrap() {
-            if field == &*SCFS_FEATURE_ID {
-                fmthdr.push(FieldFormatter {
-                    field_name: field.clone(),
-                    cluster_index: 0,
-                    is_feature_id: true,
-                    is_description: false,
-                })
-            } else if field == &*SCFS_DESCRIPTION {
-                fmthdr.push(FieldFormatter {
-                    field_name: field.clone(),
-                    cluster_index: 0,
-                    is_feature_id: false,
-                    is_description: true,
-                })
-            } else {
-                fmthdr.push(FieldFormatter {
-                    field_name: field.clone(),
-                    cluster_index: cluster_pos,
-                    is_feature_id: false,
-                    is_description: false,
-                });
-                cluster_pos += 1;
-            }
+        fmthdr.push(FieldFormatter {
+            field_name: SCFS_FEATURE_ID.clone(),
+            cluster_index: 0,
+            is_feature_id: true,
+            is_description: false,
+        });
+        for cluster in matrix.get_criteria().clusters.as_ref().unwrap() {
+            fmthdr.push(FieldFormatter {
+                field_name: cluster.clone(),
+                cluster_index: cluster_pos,
+                is_feature_id: false,
+                is_description: false,
+            });
+            cluster_pos += 1;
         }
+        fmthdr.push(FieldFormatter {
+            field_name: SCFS_DESCRIPTION.clone(),
+            cluster_index: 0,
+            is_feature_id: false,
+            is_description: true,
+        });
         fmthdr
     }
 }
@@ -91,29 +86,19 @@ fn fill_format_tuple(
     for ff in field_fmt {
         match ff.field_name.as_str() {
             "description" => {
-                if let Some(description) = row.desc() {
-                    desc = description.clone();
-                }
+                desc = row.desc().clone();
             }
             "local" => {
-                if ff.cluster_index < row_status.len() {
-                    local_state = fill_status(&row_status[ff.cluster_index]);
-                }
+                local_state = fill_status(&row_status[ff.cluster_index]);
             }
             "devnet" => {
-                if ff.cluster_index < row_status.len() {
-                    dev_state = fill_status(&row_status[ff.cluster_index]);
-                }
+                dev_state = fill_status(&row_status[ff.cluster_index]);
             }
             "testnet" => {
-                if ff.cluster_index < row_status.len() {
-                    test_state = fill_status(&row_status[ff.cluster_index]);
-                }
+                test_state = fill_status(&row_status[ff.cluster_index]);
             }
             "mainnet" => {
-                if ff.cluster_index < row_status.len() {
-                    main_state = fill_status(&row_status[ff.cluster_index]);
-                }
+                main_state = fill_status(&row_status[ff.cluster_index]);
             }
             _ => {}
         }
@@ -165,12 +150,25 @@ pub fn write_matrix_stdio(matrix: &ScfsMatrix) {
 #[cfg(test)]
 mod tests {
     use crate::utils::write_matrix_stdio;
-    use gadgets_scfs::{ScfsCriteria, ScfsMatrix, SCFS_DEVNET, SCFS_LOCAL};
+    use gadgets_scfs::{
+        ScfsCriteria, ScfsMatrix, SCFS_DEVNET, SCFS_LOCAL, SCFS_MAINNET, SCFS_TESTNET,
+    };
 
     #[test]
-    fn test_header_gen_pass() {
+    fn test_local_pass() {
         let mut cluster_vec = Vec::<String>::new();
         cluster_vec.push(SCFS_LOCAL.to_string());
+        let mut my_matrix = ScfsMatrix::new(Some(ScfsCriteria {
+            clusters: Some(cluster_vec),
+            ..Default::default()
+        }))
+        .unwrap();
+        assert!(my_matrix.run().is_ok());
+        write_matrix_stdio(&my_matrix);
+    }
+    #[test]
+    fn test_devnet_pass() {
+        let mut cluster_vec = Vec::<String>::new();
         cluster_vec.push(SCFS_DEVNET.to_string());
         let mut my_matrix = ScfsMatrix::new(Some(ScfsCriteria {
             clusters: Some(cluster_vec),
@@ -181,11 +179,27 @@ mod tests {
         write_matrix_stdio(&my_matrix);
     }
     #[test]
-    fn formatting_test() {
-        let mut fs = [""; 5];
-        fs[2] = "yes";
-        println!("{:?}", fs);
-        let x = format!("{}", 1);
-        println!("{}", x)
+    fn test_testnet_pass() {
+        let mut cluster_vec = Vec::<String>::new();
+        cluster_vec.push(SCFS_TESTNET.to_string());
+        let mut my_matrix = ScfsMatrix::new(Some(ScfsCriteria {
+            clusters: Some(cluster_vec),
+            ..Default::default()
+        }))
+        .unwrap();
+        assert!(my_matrix.run().is_ok());
+        write_matrix_stdio(&my_matrix);
+    }
+    #[test]
+    fn test_mainnet_pass() {
+        let mut cluster_vec = Vec::<String>::new();
+        cluster_vec.push(SCFS_MAINNET.to_string());
+        let mut my_matrix = ScfsMatrix::new(Some(ScfsCriteria {
+            clusters: Some(cluster_vec),
+            ..Default::default()
+        }))
+        .unwrap();
+        assert!(my_matrix.run().is_ok());
+        write_matrix_stdio(&my_matrix);
     }
 }

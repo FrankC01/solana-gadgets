@@ -88,15 +88,11 @@ lazy_static! {
 pub struct ScfsCriteria {
     pub features: Option<Vec<Pubkey>>, // Limits the feature to query status on, defaults to all
     pub clusters: Option<Vec<String>>, // Limits what clusters to query the features on, defaults to all
-    pub fields: Option<Vec<String>>,   // Limits the fields set per feature to populate
 }
 
 impl ScfsCriteria {
     fn get_clusters(&self) -> &Option<Vec<String>> {
         &self.clusters
-    }
-    fn get_fields(&self) -> &Option<Vec<String>> {
-        &self.fields
     }
 }
 
@@ -105,7 +101,6 @@ impl Default for ScfsCriteria {
         Self {
             features: Some(SCFS_FEATURE_PKS.to_vec()),
             clusters: Some(SCFS_CLUSTER_LIST.to_vec()),
-            fields: Some(SCFS_HEADER_LIST.to_vec()),
         }
     }
 }
@@ -122,23 +117,15 @@ pub enum ScfsStatus {
 pub struct ScfsRow {
     feature_key: Pubkey,
     feature_status: Vec<ScfsStatus>,
-    feature_description: Option<String>,
+    feature_description: String,
 }
 
 impl ScfsRow {
-    /// New ScfsRow with just key
-    fn new(feature_key: Pubkey) -> Self {
-        Self {
-            feature_key,
-            feature_status: Vec::<ScfsStatus>::new(),
-            feature_description: None,
-        }
-    }
     /// New ScfsRow with key and description
-    fn new_with_description(feature_key: Pubkey, feature_description: String) -> Self {
+    fn new(feature_key: Pubkey, feature_description: String) -> Self {
         Self {
             feature_key,
-            feature_description: Some(feature_description),
+            feature_description: feature_description,
             feature_status: Vec::<ScfsStatus>::new(),
         }
     }
@@ -148,7 +135,7 @@ impl ScfsRow {
     pub fn status(&self) -> &Vec<ScfsStatus> {
         &self.feature_status
     }
-    pub fn desc(&self) -> &Option<String> {
+    pub fn desc(&self) -> &String {
         &self.feature_description
     }
     // Borrow the feature status
@@ -193,16 +180,7 @@ impl ScfsMatrix {
             .map(|f| {
                 let pk = f.clone();
                 query_set.push(pk.clone());
-                if criteria
-                    .fields
-                    .as_ref()
-                    .unwrap()
-                    .contains(&SCFS_DESCRIPTION)
-                {
-                    ScfsRow::new_with_description(pk, (&*FEATURE_NAMES.get(f).unwrap()).to_string())
-                } else {
-                    ScfsRow::new(pk)
-                }
+                ScfsRow::new(pk, (&*FEATURE_NAMES.get(f).unwrap()).to_string())
             })
             .collect();
         (rows, query_set)
@@ -236,43 +214,6 @@ impl ScfsMatrix {
                     });
                 }
             }
-            // Not having any fields is bad and if there
-            // are fields they must be valid
-            if let Some(fields) = &in_criteria.fields {
-                let matching = fields
-                    .iter()
-                    .filter(|predicate| {
-                        if SCFS_HEADER_LIST.contains(predicate) {
-                            true
-                        } else {
-                            bad_elements.push(predicate.to_string());
-                            false
-                        }
-                    })
-                    .count();
-                if matching != fields.len() {
-                    return Err(ScfsError::UnrecognizedCriteriaTypeError {
-                        element: bad_elements,
-                        ctype: "field",
-                    });
-                }
-            } else {
-                return Err(ScfsError::UnrecognizedCriteriaTypeError {
-                    element: vec!["empty".to_string()],
-                    ctype: "No fields.",
-                });
-            }
-            if !in_criteria
-                .fields
-                .as_ref()
-                .unwrap()
-                .contains(&SCFS_FEATURE_ID)
-            {
-                return Err(ScfsError::UnrecognizedCriteriaTypeError {
-                    element: vec![(&SCFS_FEATURE_ID).to_string()],
-                    ctype: "Missing minimally required field.",
-                });
-            }
             // Must have features and must match from system
             // master list
             if let Some(features) = &in_criteria.features {
@@ -297,20 +238,6 @@ impl ScfsMatrix {
                 return Err(ScfsError::UnrecognizedCriteriaTypeError {
                     element: vec!["empty".to_string()],
                     ctype: "No features",
-                });
-            }
-            // Check cluster match has a field analog
-            for c in in_criteria.clusters.as_ref().unwrap() {
-                if let Some(fields) = &in_criteria.fields {
-                    if !fields.contains(c) {
-                        bad_elements.push(c.to_string());
-                    }
-                }
-            }
-            if bad_elements.len() > 0 {
-                return Err(ScfsError::UnrecognizedCriteriaTypeError {
-                    element: bad_elements,
-                    ctype: "Clusters not declared in fields",
                 });
             }
             Ok(in_criteria.clone())
@@ -348,30 +275,27 @@ impl ScfsMatrix {
         &mut self,
         query_set: &Vec<Pubkey>,
         cluster_ref: &Option<Vec<String>>,
-        field_ref: &Option<Vec<String>>,
     ) -> ScfsResult<()> {
         if let Some(clusters) = cluster_ref {
             for cluster in clusters {
-                if field_ref.as_ref().unwrap().contains(cluster) {
-                    match cluster.as_str() {
-                        "local" => {
-                            let mut index = 0usize;
-                            for _ in query_set {
-                                self.push_to_row(index, ScfsStatus::Active(0));
-                                index += 1
-                            }
+                match cluster.as_str() {
+                    "local" => {
+                        let mut index = 0usize;
+                        for _ in query_set {
+                            self.push_to_row(index, ScfsStatus::Active(0));
+                            index += 1
                         }
-                        _ => {
-                            let rcpclient =
-                                RpcClient::new(SCFS_URL_LOOKUPS.get(cluster).unwrap().clone());
-                            for (index, account) in rcpclient
-                                .get_multiple_accounts(&query_set)
-                                .unwrap()
-                                .into_iter()
-                                .enumerate()
-                            {
-                                self.set_status_for_row(index, account);
-                            }
+                    }
+                    _ => {
+                        let rcpclient =
+                            RpcClient::new(SCFS_URL_LOOKUPS.get(cluster).unwrap().clone());
+                        for (index, account) in rcpclient
+                            .get_multiple_accounts(&query_set)
+                            .unwrap()
+                            .into_iter()
+                            .enumerate()
+                        {
+                            self.set_status_for_row(index, account);
                         }
                     }
                 }
@@ -389,8 +313,7 @@ impl ScfsMatrix {
     pub fn run(&mut self) -> ScfsResult<()> {
         let qs = self.get_query_set().clone();
         let csref = self.get_criteria().get_clusters().clone();
-        let fldref = self.get_criteria().get_fields().clone();
-        self.process_cluster(&qs, &csref, &fldref)
+        self.process_cluster(&qs, &csref)
     }
 
     /// Retrieve criteria used in processing
@@ -409,8 +332,7 @@ mod tests {
     use solana_sdk::pubkey::Pubkey;
 
     use crate::{
-        ScfsCriteria, ScfsMatrix, SCFS_CLUSTER_LIST, SCFS_DEVNET, SCFS_FEATURE_PKS,
-        SCFS_HEADER_LIST, SCFS_LOCAL,
+        ScfsCriteria, ScfsMatrix, SCFS_CLUSTER_LIST, SCFS_DEVNET, SCFS_FEATURE_PKS, SCFS_LOCAL,
     };
 
     #[test]
@@ -421,9 +343,6 @@ mod tests {
         }
         if let Some(c) = &my_matrix.get_criteria().clusters {
             assert_eq!(c.len(), SCFS_CLUSTER_LIST.len());
-        }
-        if let Some(c) = &my_matrix.get_criteria().fields {
-            assert_eq!(c.len(), SCFS_HEADER_LIST.len());
         }
         assert!(my_matrix.run().is_ok());
         for res_row in my_matrix.get_result_rows() {
@@ -480,50 +399,12 @@ mod tests {
         println!("{:?}", my_matrix);
     }
     #[test]
-    fn bad_fields_fail() {
-        let faux_field = "funny_business".to_string();
-        let mut faux_vec = Vec::<String>::new();
-        faux_vec.push(faux_field);
-        let my_matrix = ScfsMatrix::new(Some(ScfsCriteria {
-            fields: Some(faux_vec),
-            ..Default::default()
-        }));
-        assert!(my_matrix.is_err());
-        println!("{:?}", my_matrix);
-    }
-    #[test]
-    fn missing_required_field_fail() {
-        let mut faux_vec = Vec::<String>::new();
-        faux_vec.push(SCFS_DEVNET.to_string());
-        let my_matrix = ScfsMatrix::new(Some(ScfsCriteria {
-            fields: Some(faux_vec),
-            ..Default::default()
-        }));
-        assert!(my_matrix.is_err());
-        println!("{:?}", my_matrix);
-    }
-    #[test]
     fn bad_clusters_fail() {
         let faux_field = "funny_business".to_string();
         let mut faux_vec = Vec::<String>::new();
         faux_vec.push(faux_field);
         let my_matrix = ScfsMatrix::new(Some(ScfsCriteria {
             clusters: Some(faux_vec),
-            ..Default::default()
-        }));
-        assert!(my_matrix.is_err());
-        println!("{:?}", my_matrix);
-    }
-    #[test]
-    fn bad_cluster_field_fail() {
-        let mut field_vec = Vec::<String>::new();
-        let mut cluster_vec = Vec::<String>::new();
-        field_vec.push(SCFS_HEADER_LIST[0].clone());
-        field_vec.push(SCFS_LOCAL.clone());
-        cluster_vec.push(SCFS_DEVNET.clone());
-        let my_matrix = ScfsMatrix::new(Some(ScfsCriteria {
-            clusters: Some(cluster_vec),
-            fields: Some(field_vec),
             ..Default::default()
         }));
         assert!(my_matrix.is_err());
