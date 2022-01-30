@@ -325,6 +325,67 @@ impl ScfsMatrix {
     pub fn get_result_rows(&self) -> &Vec<ScfsRow> {
         &self.rows
     }
+
+    /// Convenient predicate returns true for any
+    /// row when used in get_features filtering
+    pub fn all(_: &ScfsRow) -> bool {
+        true
+    }
+    /// Convenient predicate returns true if all
+    /// cluster return active when used in get_features filtering
+    pub fn all_active(row: &ScfsRow) -> bool {
+        for status in row.status() {
+            if status == &ScfsStatus::Inactive {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Convenient predicate returns true for any
+    /// row where a cluster return active
+    /// when used in get_features filtering
+    pub fn any_active(row: &ScfsRow) -> bool {
+        for status in row.status() {
+            if status != &ScfsStatus::Inactive {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Convenient predicate returns true if all
+    /// cluster return inactive when used in get_features filtering
+    pub fn all_inactive(row: &ScfsRow) -> bool {
+        for status in row.status() {
+            if status != &ScfsStatus::Inactive {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Convenient predicate returns true for any
+    /// row where a cluster return inactive
+    /// when used in get_features filtering
+    pub fn any_inactive(row: &ScfsRow) -> bool {
+        return row.status().contains(&ScfsStatus::Inactive);
+    }
+
+    /// Retrieve features with optional predicate that
+    /// tests one or more cluster status results for inclusion
+    pub fn get_features(&self, f: Option<&dyn Fn(&ScfsRow) -> bool>) -> ScfsResult<Vec<&Pubkey>> {
+        let predicate = match f {
+            Some(p) => p,
+            None => &ScfsMatrix::all,
+        };
+        Ok(self
+            .get_result_rows()
+            .iter()
+            .filter(|r| predicate(r))
+            .map(|r| r.key())
+            .collect())
+    }
 }
 
 #[cfg(test)]
@@ -333,6 +394,7 @@ mod tests {
 
     use crate::{
         ScfsCriteria, ScfsMatrix, SCFS_CLUSTER_LIST, SCFS_DEVNET, SCFS_FEATURE_PKS, SCFS_LOCAL,
+        SCFS_TESTNET,
     };
 
     #[test]
@@ -381,7 +443,63 @@ mod tests {
             println!("{:?}", res_row)
         }
     }
+    #[test]
+    fn test_devnet_filter_inactive_pass() {
+        let mut cluster_vec = Vec::<String>::new();
+        cluster_vec.push(SCFS_DEVNET.to_string());
+        let mut my_matrix = ScfsMatrix::new(Some(ScfsCriteria {
+            clusters: Some(cluster_vec),
+            ..Default::default()
+        }))
+        .unwrap();
+        assert!(my_matrix.run().is_ok());
+        let inactives = my_matrix
+            .get_features(Some(&ScfsMatrix::any_inactive))
+            .unwrap();
+        assert_ne!(inactives.len(), 0);
+        for res_row in inactives {
+            println!("{:?}", res_row)
+        }
+    }
 
+    #[test]
+    fn test_devnet_testnet_filter_all_inactive_pass() {
+        let mut cluster_vec = Vec::<String>::new();
+        cluster_vec.push(SCFS_DEVNET.to_string());
+        cluster_vec.push(SCFS_TESTNET.to_string());
+        let mut my_matrix = ScfsMatrix::new(Some(ScfsCriteria {
+            clusters: Some(cluster_vec),
+            ..Default::default()
+        }))
+        .unwrap();
+        assert!(my_matrix.run().is_ok());
+        let inactives = my_matrix
+            .get_features(Some(&ScfsMatrix::all_inactive))
+            .unwrap();
+        assert_ne!(inactives.len(), 0);
+        for res_row in inactives {
+            println!("{:?}", res_row)
+        }
+    }
+    #[test]
+    fn test_devnet_testnet_filter_all_active_pass() {
+        let mut cluster_vec = Vec::<String>::new();
+        cluster_vec.push(SCFS_DEVNET.to_string());
+        cluster_vec.push(SCFS_TESTNET.to_string());
+        let mut my_matrix = ScfsMatrix::new(Some(ScfsCriteria {
+            clusters: Some(cluster_vec),
+            ..Default::default()
+        }))
+        .unwrap();
+        assert!(my_matrix.run().is_ok());
+        let inactives = my_matrix
+            .get_features(Some(&ScfsMatrix::all_active))
+            .unwrap();
+        assert_ne!(inactives.len(), 0);
+        for res_row in inactives {
+            println!("{:?}", res_row)
+        }
+    }
     #[test]
     fn bad_features_fail() {
         let mut base_criteria = ScfsCriteria::default();

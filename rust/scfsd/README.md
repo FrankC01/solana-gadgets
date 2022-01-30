@@ -1,8 +1,7 @@
 # scfsd - Solana Cluster Feature Set Diff
 
-WIP!!! -- NOT USEFUL YET
 ## Overview
-`scfsd` aims to gather all feature sets and their status from the various Solana clusters
+`scfsd` gathers all feature sets and their status from the various Solana clusters
 
 ## Options (output to file not yet supported)
 ```bash
@@ -19,3 +18,13 @@ OPTIONS:
     -h, --help                   Print help information
     -V, --version                Print version information
 ```
+
+## Running
+1. `cd solana-gadgets/rust/scfsd`
+1. `cargo run`
+
+You should see something similar to this (partial screen shot) where green is active and red it not.
+
+Note: Local features are **_all_** active as `solana-test-validator` loads them all by default
+
+![scfsd screen](images/screen1.png?raw=true "Screen")
