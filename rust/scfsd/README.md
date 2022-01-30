@@ -25,6 +25,7 @@ OPTIONS:
 
 You should see something similar to this (partial screen shot) where green is active and red it not.
 
-Note: Local features are **_all_** active as `solana-test-validator` loads them all by default
+Note: Local features are **_all_** active as `solana-test-validator` loads them all by default.
+Because of this `scfsd` doesn't even query `local` so you do not need to run `solana-test-validator` to use `scfsd`
 
 ![scfsd screen](images/screen1.png?raw=true "Screen")
