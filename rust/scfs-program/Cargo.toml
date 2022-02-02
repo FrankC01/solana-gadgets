@@ -13,6 +13,7 @@ solana-program = {path = "../../../solana/sdk/program", version = "=1.10.0"}
 
 [dev-dependencies]
 assert_matches = "1.4.0"
+gadgets-scfs10 = {version="0.1.0", path="../gadgets-scfs10"}
 solana-client = {path = "../../../solana/client", version = "=1.10.0"}
 solana-program-test = {path = "../../../solana/program-test", version = "=1.10.0"}
 solana-sdk = {path = "../../../solana/sdk", version = "=1.10.0"}

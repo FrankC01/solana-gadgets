@@ -3,7 +3,7 @@
 
 0. Git clone [solana-gadgets](https://github.com/FrankC01/solana-gadgets)
 1. Git clone [my fork](https://github.com/FrankC01/solana) into folder parallel with `solana-gadgets`
-2. In `solana-gadgets` got to `rust/scfs-program`
+2. In `solana-gadgets` go to `rust/scfs-program`
 3. Run `cargo build-bpf`
 4. In `solana-gadgets/rust` -> `code .`
 5. Open `tests/cu_tests.rs`

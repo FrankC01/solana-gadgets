@@ -1,5 +1,6 @@
 use std::{error, path::PathBuf, str::FromStr};
 
+use gadgets_scfs10::{ScfsCriteria, ScfsMatrix, SCFS_DEVNET};
 use solana_client::rpc_client::RpcClient;
 use solana_program::{instruction::Instruction, message::Message, pubkey::Pubkey};
 use solana_sdk::{
@@ -107,6 +108,34 @@ fn base_x_transaction_cu_test_dt() {
     inv_vec.push(BLAKE3_SYSCALL);
     inv_vec.push(PROG_KEY); // Not a feature so this will be silently rejected
     let (test_validator, main_payer) = clean_ledger_setup_validator(inv_vec).unwrap();
+    let connection = test_validator.get_rpc_client();
+    solana_logger::setup_with_default("solana_runtime::message=debug");
+
+    let accounts = &[];
+    let instruction = Instruction::new_with_borsh(PROG_KEY, &0u8, accounts.to_vec());
+    let txn = submit_transaction(
+        &connection,
+        &main_payer,
+        [instruction.clone(), instruction.clone()].to_vec(),
+    );
+    println!("{:?}", txn);
+}
+
+#[test]
+fn test_devnet_filter_inactive_pass() {
+    let mut cluster_vec = Vec::<String>::new();
+    cluster_vec.push(SCFS_DEVNET.to_string());
+    let mut my_matrix = ScfsMatrix::new(Some(ScfsCriteria {
+        clusters: Some(cluster_vec),
+        ..Default::default()
+    }))
+    .unwrap();
+    assert!(my_matrix.run().is_ok());
+    let inactives = my_matrix
+        .get_features(Some(&ScfsMatrix::any_inactive))
+        .unwrap();
+    assert_ne!(inactives.len(), 0);
+    let (test_validator, main_payer) = clean_ledger_setup_validator(inactives).unwrap();
     let connection = test_validator.get_rpc_client();
     solana_logger::setup_with_default("solana_runtime::message=debug");
 

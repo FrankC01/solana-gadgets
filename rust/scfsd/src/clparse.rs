@@ -8,24 +8,21 @@ pub fn build_command_line_parser() -> App<'static> {
         .global_setting(AppSettings::DeriveDisplayOrder)
         // Limit cluster fetching
         .arg(
-            Arg::new("include")
-                .long("include")
-                .short('i')
+            Arg::new("cluster")
+                .long("cluster")
+                .short('c')
                 .takes_value(true)
-                .help("Selective choices"),
-        )
-        // Output to CSV
-        .arg(
-            Arg::new("filename")
-                .long("filename")
-                .short('f')
-                .takes_value(true)
-                .help("Output to filename in csv format"),
+                .multiple_occurrences(true)
+                .possible_values(&["all", "local", "devnet", "testnet", "mainnet"])
+                .default_value("all")
+                .help("Clusters to analyze"),
         )
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use super::*;
 
     #[test]
@@ -34,17 +31,23 @@ mod tests {
         assert!(x.is_ok());
     }
     #[test]
-    fn test_fileoutput_check_pass() {
-        let x = build_command_line_parser().try_get_matches_from(["fing", "-f", "foo"]);
-        assert!(x.is_ok());
-        let matches = x.unwrap();
-        assert!(matches.value_of("filename").is_some());
+    fn test_default_all_check_pass() {
+        let matches = build_command_line_parser()
+            .try_get_matches_from(["fing"])
+            .unwrap();
+        let mut inc_set = HashSet::<&str>::new();
+        inc_set.extend(matches.values_of("cluster").unwrap());
+        assert!(inc_set.contains("all"));
     }
     #[test]
-    fn test_stdoutput_check_pass() {
-        let x = build_command_line_parser().try_get_matches_from(["fing"]);
-        assert!(x.is_ok());
-        let matches = x.unwrap();
-        assert!(matches.value_of("filename").is_none());
+    fn test_devnet_check_pass() {
+        let matches = build_command_line_parser()
+            .try_get_matches_from(["fing", "-c", "devnet"])
+            .unwrap();
+        let mut inc_set = HashSet::<&str>::new();
+        inc_set.extend(matches.values_of("cluster").unwrap());
+        assert_eq!(matches.occurrences_of("cluster"), 1);
+        assert_eq!(matches.occurrences_of("cluster") as usize, inc_set.len());
+        assert!(inc_set.contains("devnet"));
     }
 }
