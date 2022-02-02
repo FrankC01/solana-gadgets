@@ -9,6 +9,7 @@
 5. Open `tests/cu_tests.rs`
 6. Run `base_test()` -> This has Tx wide CU feature enabled (by default)
 7. Run `base_x_transaction_cu_test()` -> This disables the Tx wide CU feature
+8. Test `test_devnet_filter_inactive_pass()` -> Demonstrates using the scfs engine to get the inactive feature list from devnet to feed into the test validator. In effect, emulating devnet from a feature perspective.
 
 You should see similar results. Not that the first test consumes down from Tx wide ComputeBudget whereas 2nd starts each instruction with new ComputeBudget
 

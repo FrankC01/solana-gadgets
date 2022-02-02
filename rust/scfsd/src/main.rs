@@ -20,9 +20,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matrix_result = if inc_set.contains("all") {
         ScfsMatrix::new(None)
     } else {
-        let cluster_vec = inc_set.iter().map(|cluster| cluster.to_string()).collect();
         ScfsMatrix::new(Some(ScfsCriteria {
-            clusters: Some(cluster_vec),
+            clusters: Some(inc_set.iter().map(|cluster| cluster.to_string()).collect()),
             ..Default::default()
         }))
     };
