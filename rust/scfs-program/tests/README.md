@@ -11,6 +11,8 @@
 7. Run `base_x_transaction_cu_test()` -> This disables the Tx wide CU feature
 8. Test `test_devnet_filter_inactive_pass()` -> Demonstrates using the scfs engine to get the inactive feature list from devnet to feed into the test validator. In effect, emulating devnet from a feature perspective.
 
+You can also run tests from command-line `cargo test -- --test-threads=1 --nocapture`
+
 You should see similar results. Not that the first test consumes down from Tx wide ComputeBudget whereas 2nd starts each instruction with new ComputeBudget
 
 Without removing feature: 5ekBxc8itEnPv4NzGJtr8BVVQLNMQuLMNQQj7pHoLNZ9 from genesis_config.accounts on 1.10.0:
