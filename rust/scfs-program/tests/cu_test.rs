@@ -4,6 +4,7 @@ use gadgets_scfs10::{ScfsCriteria, ScfsMatrix, SCFS_DEVNET};
 use solana_client::rpc_client::RpcClient;
 use solana_program::{instruction::Instruction, message::Message, pubkey::Pubkey};
 use solana_sdk::{
+    compute_budget::ComputeBudgetInstruction,
     pubkey,
     signature::{Keypair, Signature},
     signer::Signer,
@@ -68,18 +69,21 @@ pub fn clean_ledger_setup_validator(
 
 #[test]
 fn base_test() {
-    // let inv_feat = vec![TXWIDE_LIMITS];
     let inv_feat = vec![];
     let (test_validator, main_payer) = clean_ledger_setup_validator(inv_feat).unwrap();
     let connection = test_validator.get_rpc_client();
     solana_logger::setup_with_default("solana_runtime::message=debug");
 
     let accounts = &[];
-    let instruction = Instruction::new_with_borsh(PROG_KEY, &0u8, accounts.to_vec());
     let txn = submit_transaction(
         &connection,
         &main_payer,
-        [instruction.clone(), instruction.clone()].to_vec(),
+        [
+            ComputeBudgetInstruction::request_units(400_000u32),
+            Instruction::new_with_borsh(PROG_KEY, &0u8, accounts.to_vec()),
+            Instruction::new_with_borsh(PROG_KEY, &1u8, accounts.to_vec()),
+        ]
+        .to_vec(),
     );
     println!("{:?}", txn);
 }
@@ -92,10 +96,11 @@ fn base_x_transaction_cu_test() {
 
     let accounts = &[];
     let instruction = Instruction::new_with_borsh(PROG_KEY, &0u8, accounts.to_vec());
+    let bump_budget = ComputeBudgetInstruction::request_units(400_000u32);
     let txn = submit_transaction(
         &connection,
         &main_payer,
-        [instruction.clone(), instruction.clone()].to_vec(),
+        [bump_budget, instruction.clone(), instruction.clone()].to_vec(),
     );
     println!("{:?}", txn);
 }

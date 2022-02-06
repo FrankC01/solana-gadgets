@@ -2,10 +2,7 @@
 members = [
     "gadgets-common",
     "gadgets-scfs",
-    "gadgets-scfs10",
     "sad",
     "scfsd",
-    "scfs-program",
 ]
-
-exclude = []
+exclude = ["gadgets-scfs10"]

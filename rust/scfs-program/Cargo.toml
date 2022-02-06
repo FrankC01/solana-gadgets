@@ -5,11 +5,14 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[workspace]
+
 [features]
 test-bpf = []
 
 [dependencies]
 solana-program = {path = "../../../solana/sdk/program", version = "=1.10.0"}
+
 
 [dev-dependencies]
 assert_matches = "1.4.0"
