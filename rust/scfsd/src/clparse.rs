@@ -29,7 +29,7 @@ pub fn build_command_line_parser() -> App<'static> {
                 .long("target-test-validator")
                 .multiple_occurrences(false)
                 .short('t')
-                .help("Generates list of inactivated feature keys for input to solana-test-validator"),
+                .help("Combined with -k, generates list of inactivated feature keys for input to solana-test-validator"),
         )
 }
 
