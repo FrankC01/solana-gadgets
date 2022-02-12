@@ -2,7 +2,7 @@
 mod tests {
     use std::{error, path::PathBuf, str::FromStr};
 
-    use gadgets_scfs10::{ScfsCriteria, ScfsMatrix, SCFS_DEVNET};
+    use gadgets_scfs::{ScfsCriteria, ScfsMatrix, SCFS_DEVNET};
     use solana_client::rpc_client::RpcClient;
     use solana_program::{instruction::Instruction, message::Message, pubkey::Pubkey};
     use solana_sdk::{
