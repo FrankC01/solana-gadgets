@@ -5,7 +5,7 @@
 Assumes using vscode, adjust as necessary for other...
 
 0. Git clone [solana-gadgets](https://github.com/FrankC01/solana-gadgets)
-1. Git clone [solana](https://github.com/solana-labs/solana) into folder parallel with `solana-gadgets`
+1. Use `solana-install ...` to update to 1.9.6 or install from scratch
 2. In `solana-gadgets` go to `rust/scfs-program`
 3. Run `cargo build-bpf`
 
@@ -16,13 +16,15 @@ Assumes using vscode, adjust as necessary for other...
 ### Test in vscode editor
 1. `code .`
 2. Open `tests/cu_tests.rs`
-3. Run `base_test()` -> This has Tx wide CU feature enabled (by default)
-4. Run `base_x_transaction_cu_test()` -> This disables the Tx wide CU feature
-5. Test `test_devnet_filter_inactive_pass()` -> Demonstrates using the scfs engine to get the inactive feature list from devnet to feed into the test validator. In effect, emulating devnet from a feature perspective.
+3. Run `test_base_pass()` -> This has Tx wide CU feature enabled (by default)
+4. Run `test_deactivate_tx_cu_pass()` -> This disables the Tx wide CU feature
+5. Run `test_devnet_parity_pass()` -> Demonstrates using the scfs engine to get the deactivated feature list from
+devnet to feed into the test validator. In effect, emulating devnet from a feature perspective.
 
-You should see similar results. Not that the first test consumes down from Tx wide ComputeBudget whereas 2nd starts each instruction with new ComputeBudget
+You should see similar results. Note that the first test consumes down from Tx wide ComputeBudget whereas
+the 2nd and 3rd tests start each instruction with new ComputeBudget of 200_000 CU
 
-Without removing feature: 5ekBxc8itEnPv4NzGJtr8BVVQLNMQuLMNQQj7pHoLNZ9 from genesis_config.accounts on 1.10.0:
+Without removing feature: 5ekBxc8itEnPv4NzGJtr8BVVQLNMQuLMNQQj7pHoLNZ9 from genesis_config.accounts on 1.9.6:
 ```
 [2022-01-30T20:58:50.041063000Z DEBUG solana_runtime::message_processor::stable_log] Program PWDnx8LkjJUn9bAVzG6Fp6BuvB41x7DkBZdo9YLMGcc invoke [1]
 [2022-01-30T20:58:50.041297000Z DEBUG solana_runtime::message_processor::stable_log] Program log: process_instruction: PWDnx8LkjJUn9bAVzG6Fp6BuvB41x7DkBZdo9YLMGcc: 0 accounts, data=[0]
@@ -48,7 +50,7 @@ Without removing feature: 5ekBxc8itEnPv4NzGJtr8BVVQLNMQuLMNQQj7pHoLNZ9 from gene
 [2022-01-30T20:58:50.174939000Z DEBUG solana_runtime::message_processor::stable_log] Program Vote111111111111111111111111111111111111111 success
 ```
 
-With removing feature: 5ekBxc8itEnPv4NzGJtr8BVVQLNMQuLMNQQj7pHoLNZ9 from genesis_config.accounts on 1.10.0:
+With removing feature: 5ekBxc8itEnPv4NzGJtr8BVVQLNMQuLMNQQj7pHoLNZ9 from genesis_config.accounts on 1.9.6:
 
 ```bash
 [2022-01-30T20:51:35.402343000Z DEBUG solana_runtime::message_processor::stable_log] Program PWDnx8LkjJUn9bAVzG6Fp6BuvB41x7DkBZdo9YLMGcc invoke [1]

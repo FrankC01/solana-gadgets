@@ -1,5 +1,5 @@
-//! @brief Create for retrieving cluster feature status
-//! supporting a myriad of parametizations
+//! Crate for retrieving Solana cluster feature status
+//! and supporting a few parametized queries for result retrieval
 //!
 //! A ScfsMatrix consists of rows, where each row has:
 //!     Feature ID (Pubkey of feature) that is consistent across clusters - Always included
@@ -13,9 +13,7 @@
 //! 2. User configured criteria allowing:
 //!     2.1 Identifying which cluster(s) to sample
 //!         2.1.1 Boolean indicating whether to keep the row if status from cluster is Active or other
-//!     2.2 Identifying which elements of the rows to return
-//!         2.2.1 Feature ID is always included
-//!     2.3 A list of feature IDs to sample for the cluster status
+//!     2.2 A list of feature IDs to sample for the cluster status
 //!
 
 use lazy_static::*;

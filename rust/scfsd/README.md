@@ -33,8 +33,8 @@ You should see something similar to this (partial screen shot) where green is ac
 ## Variations
 1. `cargo run -- -c devnet -c testnet` -> Fetch feature state from devnet and testnet only
 2. `cargo run -- -c devnet -c testnet -c all` -> Defaults to all, ignoring other `-c` options
-3. `cargo run -- -c devnet -k` -> Just prints the inactived feature keys
-4. `cargo run -- -c devnet -k -t` -> Just prints the inactived feature keys with --deactivate-feature XXX prefix for solana-test-validator
+3. `cargo run -- -c devnet -k` -> Just prints the inactivated feature keys
+4. `cargo run -- -c devnet -k -t` -> Just prints the inactivated feature keys with --deactivate-feature XXX prefix for solana-test-validator
 
 Because for current local configuration `scfsd` doesn't even query `local` so you do not need to run `solana-test-validator` to use `scfsd`
 
