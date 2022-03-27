@@ -51,7 +51,7 @@ to the `../samples/keys` folder
 
 The data descriptor file for the Program account owned data is provided in the `../samples/yamldecls` folder
 
-For the examples output below, the data came from the program in `devnet`, where first a 'mint' occured
+For the examples output below, the data came from the program in `devnet`, where first a 'mint' occurred
 on `user1` and then the key/value was transferred to `user2`. The output content may differ by the time you
 run this:
 
