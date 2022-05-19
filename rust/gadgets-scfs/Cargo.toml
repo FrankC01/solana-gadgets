@@ -11,6 +11,6 @@ edition = "2021"
 [dependencies]
 lazy_static = "1.4.0"
 semver = "1.0.4"
-solana-client = "1.10.4"
-solana-sdk = "1.10.4"
+solana-client = "1.10.8"
+solana-sdk = "1.10.8"
 thiserror = "1.0.30"

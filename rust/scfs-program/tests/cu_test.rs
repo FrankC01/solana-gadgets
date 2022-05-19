@@ -128,7 +128,7 @@ mod tests {
             &main_payer,
             [
                 // This CU transaction budget instruction does nothing when we deactivate the feature
-                ComputeBudgetInstruction::request_units(400_000u32, 1),
+                ComputeBudgetInstruction::set_compute_unit_limit(400_000u32),
                 // Add two (2) instructions to transaction
                 // Replace with instructions that make sense for your program
                 Instruction::new_with_borsh(PROG_KEY, &0u8, accounts.to_vec()),
@@ -191,7 +191,7 @@ mod tests {
             &main_payer,
             [
                 // This CU transaction budget instruction does nothing when we deactivate the feature
-                ComputeBudgetInstruction::request_units(400_000u32, 1),
+                ComputeBudgetInstruction::set_compute_unit_limit(400_000u32),
                 // Add two (2) instructions to transaction
                 // Replace with instructions that make sense for your program
                 Instruction::new_with_borsh(PROG_KEY, &0u8, accounts.to_vec()),
