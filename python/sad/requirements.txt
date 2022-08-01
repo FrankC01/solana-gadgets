@@ -48,7 +48,7 @@ sumtypes==0.1a6
 toml==0.10.2
 tomli==2.0.0
 types-cachetools==4.2.6
-typing_extensions==4.0.1
+typing-extensions==3.10.0.2
 urllib3==1.26.7
 websockets==10.1
 wrapt==1.13.3
