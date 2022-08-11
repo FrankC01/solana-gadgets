@@ -16,11 +16,11 @@ solana-program = "1.10.32"
 [dev-dependencies]
 assert_matches = "1.5.0"
 gadgets-scfs = {version="0.2.0", path="../gadgets-scfs"}
-solana-client = "1.10.32"
-solana-program-test = "1.10.32"
-solana-sdk = "1.10.32"
-solana-logger = "1.10.32"
-solana-test-validator =  "1.10.32"
+solana-client = "~1.11"
+solana-program-test = "~1.11"
+solana-sdk = "~1.11"
+solana-logger = "~1.11"
+solana-test-validator =  "~1.11"
 
 
 [lib]
