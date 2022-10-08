@@ -287,13 +287,22 @@ impl ScfsMatrix {
                     _ => {
                         let rcpclient =
                             RpcClient::new(SCFS_URL_LOOKUPS.get(cluster).unwrap().clone());
-                        for (index, account) in rcpclient
-                            .get_multiple_accounts(&query_set)
-                            .unwrap()
-                            .into_iter()
-                            .enumerate()
-                        {
-                            self.set_status_for_row(index, account);
+
+                        // get_multiple_accounts is now capped at 100 elements so we
+                        // need to break up the feature query set
+                        let dst: Vec<Vec<Pubkey>> =
+                            query_set.chunks(100).map(|s| s.into()).collect();
+                        let mut counter = 0usize;
+                        for iset in dst {
+                            for (_, account) in rcpclient
+                                .get_multiple_accounts(&iset)
+                                .unwrap()
+                                .into_iter()
+                                .enumerate()
+                            {
+                                self.set_status_for_row(counter, account);
+                                counter = counter + 1;
+                            }
                         }
                     }
                 }

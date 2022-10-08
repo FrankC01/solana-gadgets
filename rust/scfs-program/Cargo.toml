@@ -10,7 +10,7 @@ license = "MIT"
 test-bpf = []
 
 [dependencies]
-solana-program = "1.10.4"
+solana-program = "1.10.32"
 
 
 [dev-dependencies]

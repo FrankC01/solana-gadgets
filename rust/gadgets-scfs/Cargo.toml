@@ -12,6 +12,6 @@ license = "MIT"
 [dependencies]
 lazy_static = "1.4.0"
 semver = "1.0.4"
-solana-client = "1.10.23"
-solana-sdk = "1.10.23"
+solana-client = "~1.11"
+solana-sdk = "~1.11"
 thiserror = "1.0.30"
