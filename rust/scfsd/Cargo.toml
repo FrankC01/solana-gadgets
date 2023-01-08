@@ -15,8 +15,8 @@ console = "0.15.0"
 gadgets-scfs = {version="0.2.0", path="../gadgets-scfs"}
 lazy_static = "1.4.0"
 semver = "1.0.4"
-solana-sdk = "1.14.*"
-solana-client = "1.14.*"
+solana-sdk = "~1.14"
+solana-client = "~1.14"
 
 [dev-dependencies]
-solana-validator = "1.14.*"
+solana-validator = "~1.14"
